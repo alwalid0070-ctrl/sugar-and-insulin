@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ورقة متابعة نسبة السكر</title>
+<style>
+:root{color-scheme:light}
+body{margin:0;background:#e9e9e9;font-family:Arial,Tahoma,sans-serif;color:#111}
+.bar{max-width:900px;margin:10px auto;padding:8px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;direction:rtl}
+.bar button{font:inherit;font-size:15px;padding:10px 14px;border:1px solid #555;background:#fff;border-radius:6px;min-height:44px}
+.note{max-width:900px;margin:0 auto 8px;padding:0 10px;font-size:13px;color:#444;direction:rtl;text-align:center}
+.scroll{overflow-x:auto;padding:0 8px 20px}
+#paper{background:#fff;width:900px;margin:0 auto;padding:30px 20px 20px;box-sizing:border-box}
+table{border-collapse:collapse;table-layout:fixed;width:100%}
+td,th{border:1.5px solid #222;padding:2px;vertical-align:top;font-weight:normal}
+th{font-size:13px}
+th.t{height:72px;text-align:center;font-size:15px;vertical-align:top;padding-top:10px}
+th.h{height:165px;font-size:12px;line-height:1.7;text-align:center}
+th.h .l{display:block;text-align:left;font-size:14px;padding-left:4px}
+td.gap,th.gap{width:10px;padding:0;border-width:1.5px;background:#fff}
+td.d{font-size:14px;padding:4px;height:118px}
+.dt{display:block;width:100%;box-sizing:border-box;margin-top:8px;min-height:30px;border:0;border-bottom:1px dotted #444;background:transparent;font:inherit;font-size:12px;padding:0;color:#111}
+td input{width:100%;height:100%;min-height:112px;box-sizing:border-box;border:0;background:transparent;font:inherit;font-size:20px;text-align:center;outline:0;padding:0}
+td input:focus{background:#fff8d6}
+.id{display:flex;gap:10px;margin-top:34px;font-size:15px;align-items:flex-end}
+.id label{display:flex;flex:1;align-items:flex-end;gap:6px}
+.id input{flex:1;min-width:0;border:0;border-bottom:1px solid #222;font:inherit;font-size:16px;outline:0;background:transparent;padding:4px 0}
+#imp{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10;overflow:auto;padding:10px;box-sizing:border-box}
+#imp[hidden]{display:none}
+#imp .box{background:#fff;max-width:860px;margin:0 auto;padding:14px;border-radius:8px;font-size:14px}
+#imp h3{margin:0 0 8px}
+#imp .tw{overflow:auto;max-height:45vh;border:1px solid #bbb;margin:8px 0}
+#imptab{width:100%;table-layout:auto;font-size:13px}
+#imptab td,#imptab th{border:1px solid #ccc;padding:3px 5px;text-align:center;background:#fff}
+#imptab th{background:#eee;position:sticky;top:0}
+#imptab tr.c td{background:#ffe3b3}#imptab tr.n td{background:#e4f6e4}
+#impwarn{color:#8a4b00;font-size:13px;margin-top:6px;max-height:90px;overflow:auto}
+#imp .ow{display:block;margin:6px 0}
+#imp .ab{display:flex;gap:8px;flex-wrap:wrap}
+#imp .ab button{font:inherit;padding:10px 14px;border:1px solid #555;background:#fff;border-radius:6px;min-height:44px}
+@page{size:A4 portrait;margin:10mm}
+@media print{
+ body{background:#fff}.bar,.note{display:none}
+ .scroll{overflow:visible;padding:0}
+ #paper{width:100%;padding:0;margin:0;break-inside:avoid}
+ td input:focus{background:transparent}
+}
+</style>
+</head>
+<body>
+<div class="bar">
+ <button onclick="exportDocx()">تصدير Word</button>
+ <button onclick="window.print()">تصدير PDF / طباعة</button>
+ <button onclick="exportCsv()">تصدير CSV</button>
+ <button onclick="document.getElementById('csvfile').click()">📥 استيراد CSV</button>
+ <input type="file" id="csvfile" accept=".csv,text/csv,text/plain" style="display:none" onchange="pickCsv(this)">
+ <button onclick="saveHtml()">تنزيل نسخة HTML</button>
+ <button onclick="clearAll()">مسح البيانات</button>
+</div>
+<div class="note">تُحفظ البيانات تلقائيًا في هذا المتصفح وعلى هذا الجهاز فقط (لا مزامنة بين الأجهزة ولا إرسال لأي خادم). لتصدير PDF: اختر «حفظ كـ PDF» في نافذة الطباعة. الصفحة تعمل دون إنترنت.</div>
+<div class="scroll"><div id="paper">
+ <table id="sheet"></table>
+ <div class="id">
+  <label>Nom :<input id="nom" autocomplete="off"></label>
+  <label>Prénom :<input id="prenom" autocomplete="off"></label>
+  <label>Age :<input id="age" inputmode="numeric" autocomplete="off"></label>
+ </div>
+</div></div>
+<div id="imp" hidden><div class="box" dir="rtl">
+ <h3>معاينة استيراد CSV</h3>
+ <div id="impsum"></div><div id="impwarn"></div>
+ <div class="tw"><table id="imptab"></table></div>
+ <label class="ow"><input type="checkbox" id="impow"> عند الدمج: استبدال القيم المتعارضة بقيم الملف (الافتراضي: الإبقاء على القيم الحالية)</label>
+ <div class="ab"><button onclick="applyImport('merge')">دمج البيانات</button><button onclick="applyImport('replace')">استبدال البيانات</button><button onclick="closeImp()">إلغاء</button></div>
+</div></div>
+<script>
+var PRE=null;
+var KEY='glycemia_sheet_v1';
+var AS='نسبة السكر بعد الاكل', IN='كمية الانسلين';
+var COLS=[
+ {k:'b1',m:'petit déjeuner',t:'نسبة السكر قبل الاكل',h:'<span dir="rtl">نسبة السكر قبل الاكل</span>'},
+ {k:'b2',m:'petit déjeuner',t:IN+' NOVO rapid',h:'<span dir="rtl">'+IN+'</span><span class="l">NOVO<br><br><i>rapid</i></span>'},
+ {k:'b3',m:'petit déjeuner',t:AS+' ب 2 ساعة',h:'<span dir="rtl">نسبة السكر بعد الاكل ب 2 ساعة</span>'},
+ null,
+ {k:'l1',m:'déjeuner',t:IN+' NOVO rapid',h:'<span dir="rtl">'+IN+'</span><span class="l">NOVO<br><br>rapid</span>'},
+ {k:'l2',m:'déjeuner',t:AS+' ب 2 ساعة',h:'<span dir="rtl">نسبة السكر بعد الاكل ب 2 ساعة</span>'},
+ {k:'d1',m:'diner',t:IN+' NOVO Mix',h:'<span dir="rtl">'+IN+'</span><span class="l">NOVO<br><br>Mix</span>'},
+ {k:'d2',m:'diner',t:AS+' ب 2 ساعة',h:'<span dir="rtl">نسبة السكر بعد الاكل ب 2 ساعة</span>'},
+ {k:'d3',m:'diner',t:IN+' GLARUS / TRESIBA',h:'<span dir="rtl">'+IN+'</span><span class="l">GLARUS<br><br>TRESIBA</span>'}
+];
+var DAYS=['jour 1','Jour 2','Jour 3','Jour 4'];
+var data={};
+try{data=JSON.parse(localStorage.getItem(KEY)||'null')||PRE||{}}catch(e){data=PRE||{}}
+
+function render(){
+ var w=[100,78,92,92,10,92,92,92,92,98];
+ var h='<colgroup>'+w.map(function(x){return '<col style="width:'+x+'px">'}).join('')+'</colgroup>';
+ h+='<tr><th rowspan="2" style="height:72px"></th><th class="t" colspan="3" dir="rtl" style="text-align:center"><span dir="rtl">الصباح</span> petit déjeuner</th><th class="gap" rowspan="2"></th><th class="t" colspan="2"><span dir="rtl">الغذاء:</span> déjeuner</th><th class="t" colspan="3"><span dir="rtl">العشاء:</span> diner</th></tr>';
+ h+='<tr>'+COLS.map(function(c){return c?'<th class="h">'+c.h+'</th>':''}).join('')+'</tr>';
+ DAYS.forEach(function(d,i){
+  h+='<tr><td class="d">'+d.replace(' ','<br>')+'<input type="date" class="dt" data-id="date_'+(i+1)+'" aria-label="تاريخ '+d+'" value="'+esc(data['date_'+(i+1)]||'')+'"></td>'+COLS.map(function(c){
+   if(!c)return '<td class="gap"></td>';
+   var id='d'+(i+1)+'_'+c.k;
+   return '<td><input data-id="'+id+'" inputmode="decimal" autocomplete="off" aria-label="'+d+' - '+c.t+'" value="'+esc(data[id]||'')+'"></td>';
+  }).join('')+'</tr>';
+ });
+ document.getElementById('sheet').innerHTML=h;
+ ['nom','prenom','age'].forEach(function(id){document.getElementById(id).value=data[id]||''});
+}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')}
+function save(){
+ try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){status('تعذّر الحفظ المحلي في هذا المتصفح (قد يكون وضع التصفح الخاص مفعّلًا).')}
+}
+function status(m){alert(m)}
+document.addEventListener('input',function(e){
+ var t=e.target,id=t.getAttribute('data-id')||t.id;
+ if(!id)return;
+ if(t.hasAttribute('data-id')&&t.type!=='date'){t.value=t.value.replace(/[^0-9.,٠-٩]/g,'')}
+ data[id]=t.value;save();
+});
+document.addEventListener('keydown',function(e){
+ if(e.key!=='Enter'||e.target.tagName!=='INPUT')return;
+ var all=[].slice.call(document.querySelectorAll('#paper input:not([type=date])')),i=all.indexOf(e.target);
+ if(all[i+1]){all[i+1].focus();e.preventDefault()}
+});
+function clearAll(){
+ if(!confirm('هل تريد فعلًا مسح جميع البيانات المدخلة؟'))return;
+ data={};try{localStorage.removeItem(KEY)}catch(e){}
+ render();
+}
+function dl(name,blob){
+ try{var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();
+ setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},1000)}catch(e){status('تعذّر التنزيل: '+e.message)}
+}
+function exportCsv(){
+ var q=function(s){s=String(s==null?'':s);return '"'+s.replace(/"/g,'""')+'"'};
+ var rows=[['Nom','Prénom','Age','Jour','Date','Repas','Mesure','Valeur']];
+ DAYS.forEach(function(d,i){var n=0;COLS.forEach(function(c){
+  if(!c)return;var v=data['d'+(i+1)+'_'+c.k];
+  if(v){n++;rows.push([data.nom||'',data.prenom||'',data.age||'',d,data['date_'+(i+1)]||'',c.m,c.t,v])}
+ });
+ if(!n&&data['date_'+(i+1)])rows.push([data.nom||'',data.prenom||'',data.age||'',d,data['date_'+(i+1)],'','','']);
+ });
+ if(rows.length===1)rows.push([data.nom||'',data.prenom||'',data.age||'','','','','','']);
+ var txt='\ufeff'+rows.map(function(r){return r.map(q).join(',')}).join('\r\n');
+ dl('glycemie.csv',new Blob([txt],{type:'text/csv;charset=utf-8'}));
+}
+function saveHtml(){
+ var html='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
+ html=html.replace('var PRE=null;','var PRE='+JSON.stringify(data).replace(/</g,'\\u003c')+';');
+ dl('glycemia-sheet.html',new Blob([html],{type:'text/html;charset=utf-8'}));
+}
+/* ---------- DOCX (no libraries) ---------- */
+var ar=function(s){return /[\u0600-\u06FF]/.test(s)};
+function x(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function para(s,sz,jc){
+ if(!s)return '<w:p><w:pPr><w:jc w:val="center"/></w:pPr></w:p>';
+ var a=ar(s);
+ return '<w:p><w:pPr>'+(a?'<w:bidi/>':'')+'<w:jc w:val="'+(jc||'center')+'"/></w:pPr><w:r><w:rPr><w:sz w:val="'+sz+'"/>'+(a?'<w:rtl/><w:szCs w:val="'+sz+'"/>':'')+'</w:rPr><w:t xml:space="preserve">'+x(s)+'</w:t></w:r></w:p>';
+}
+function tc(w,txt,o){
+ o=o||{};
+ return '<w:tc><w:tcPr><w:tcW w:w="'+w+'" w:type="dxa"/>'+(o.span?'<w:gridSpan w:val="'+o.span+'"/>':'')+(o.vm?'<w:vMerge'+(o.vm==='r'?' w:val="restart"':'')+'/>':'')+'</w:tcPr>'+para(txt,o.sz||16,o.jc)+'</w:tc>';
+}
+function tr(h,cells){return '<w:tr><w:trPr><w:trHeight w:val="'+h+'" w:hRule="atLeast"/></w:trPr>'+cells+'</w:tr>'}
+function buildDocx(){
+ var W=[1050,900,1000,1000,120,1000,1000,1000,1000,1100],i;
+ var cols=COLS.map(function(c){return c});
+ var rows=tr(900,tc(W[0],'',{vm:'r'})+tc(W[1]+W[2]+W[3],'الصباح petit déjeuner',{span:3,sz:20})+tc(W[4],'')+tc(W[5]+W[6],'الغذاء: déjeuner',{span:2,sz:20})+tc(W[7]+W[8]+W[9],'العشاء: diner',{span:3,sz:20}));
+ var hc=tc(W[0],'',{vm:'c'});
+ cols.forEach(function(c,j){hc+=c?tc(W[j+1],c.t,{sz:15}):tc(W[j+1],'')});
+ rows+=tr(1900,hc);
+ DAYS.forEach(function(d,di){
+  var r=tc(W[0],d,{jc:'left'}).replace('</w:tc>',para(fmtD(data['date_'+(di+1)]),16,'left')+'</w:tc>');
+  cols.forEach(function(c,j){r+=c?tc(W[j+1],data['d'+(di+1)+'_'+c.k]||'',{sz:20}):tc(W[j+1],'')});
+  rows+=tr(1500,r);
+ });
+ var b='<w:tblBorders>'+['top','left','bottom','right','insideH','insideV'].map(function(n){return '<w:'+n+' w:val="single" w:sz="8" w:color="222222"/>'}).join('')+'</w:tblBorders>';
+ var tbl='<w:tbl><w:tblPr><w:tblW w:w="'+W.reduce(function(a,b){return a+b})+'" w:type="dxa"/>'+b+'<w:tblLayout w:type="fixed"/></w:tblPr><w:tblGrid>'+W.map(function(w){return '<w:gridCol w:w="'+w+'"/>'}).join('')+'</w:tblGrid>'+rows+'</w:tbl>';
+ var idp=para('Nom : '+(data.nom||'')+'          Prénom : '+(data.prenom||'')+'          Age : '+(data.age||''),22,'left');
+ return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'+tbl+para('',22)+idp+'<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="900" w:right="500" w:bottom="900" w:left="500" w:header="400" w:footer="400" w:gutter="0"/></w:sectPr></w:body></w:document>';
+}
+function fmtD(v){var m=/^(\d{4})-(\d\d)-(\d\d)$/.exec(v||'');return m?m[3]+'/'+m[2]+'/'+m[1]:(v||'')}
+var CT=null;
+function crc(b){
+ if(!CT){CT=[];for(var n=0;n<256;n++){var c=n;for(var k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;CT[n]=c>>>0}}
+ var c=0xFFFFFFFF;for(var i=0;i<b.length;i++)c=CT[(c^b[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;
+}
+function zip(files){
+ var enc=new TextEncoder(),parts=[],cen=[],off=0;
+ var u16=function(v){return [v&255,(v>>8)&255]},u32=function(v){return [v&255,(v>>>8)&255,(v>>>16)&255,(v>>>24)&255]};
+ files.forEach(function(f){
+  var nm=enc.encode(f[0]),d=enc.encode(f[1]),c=crc(d);
+  var lh=[].concat(u32(0x04034b50),u16(20),u16(0x0800),u16(0),u16(0),u16(0x21),u32(c),u32(d.length),u32(d.length),u16(nm.length),u16(0));
+  parts.push(new Uint8Array(lh),nm,d);
+  cen.push([new Uint8Array([].concat(u32(0x02014b50),u16(20),u16(20),u16(0x0800),u16(0),u16(0),u16(0x21),u32(c),u32(d.length),u32(d.length),u16(nm.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(off))),nm]);
+  off+=lh.length+nm.length+d.length;
+ });
+ var cs=off;
+ cen.forEach(function(c){parts.push(c[0],c[1]);off+=c[0].length+c[1].length});
+ parts.push(new Uint8Array([].concat(u32(0x06054b50),u16(0),u16(0),u16(files.length),u16(files.length),u32(off-cs),u32(cs),u16(0))));
+ return new Blob(parts,{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+}
+function exportDocx(){
+ try{
+  var H='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+  dl('glycemie.docx',zip([
+   ['[Content_Types].xml',H+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>'],
+   ['_rels/.rels',H+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>'],
+   ['word/document.xml',buildDocx()]
+  ]));
+ }catch(e){status('تعذّر إنشاء ملف Word: '+e.message)}
+}
+
+/* ---------- CSV import ---------- */
+var ENT=[];
+function parseCsv(t){
+ t=t.replace(/^\ufeff/,'');var rows=[],row=[],f='',q=false,i,c;
+ for(i=0;i<t.length;i++){c=t[i];
+  if(q){if(c=='"'){if(t[i+1]=='"'){f+='"';i++}else q=false}else f+=c}
+  else if(c=='"')q=true;
+  else if(c==','){row.push(f);f=''}
+  else if(c=='\n'||c=='\r'){if(c=='\r'&&t[i+1]=='\n')i++;row.push(f);f='';rows.push(row);row=[]}
+  else f+=c;
+ }
+ if(q)throw new Error('الملف تالف: علامة اقتباس غير مغلقة.');
+ if(f!==''||row.length){row.push(f);rows.push(row)}
+ return rows.filter(function(r){return r.some(function(x){return x.trim()!==''})});
+}
+function nm(s){return String(s).normalize('NFC').toLowerCase().replace(/î/g,'i').replace(/\s+/g,' ').trim()}
+function findCol(meal,mes){
+ var m=nm(meal),t=mes.trim().replace(/\s+/g,' '),k;
+ for(k=0;k<COLS.length;k++){var c=COLS[k];if(c&&nm(c.m)===m&&c.t===t)return c}
+ if(m==='diner'&&t===IN+' NOVO rapid')return COLS.filter(function(c){return c&&c.k==='d1'})[0];
+ return null;
+}
+function parseImport(text){
+ var rows=parseCsv(text);
+ if(!rows.length)throw new Error('الملف فارغ.');
+ var hd=rows[0].map(function(x){return x.trim()}),ix={};
+ hd.forEach(function(h,i){ix[h]=i});
+ var miss=['Jour','Repas','Mesure','Valeur'].filter(function(h){return !(h in ix)});
+ if(miss.length)throw new Error('ملف غير متوافق: الأعمدة المطلوبة ناقصة ('+miss.join(', ')+'). يجب أن يكون الملف مُصدَّرًا من هذه الورقة.');
+ var g=function(r,h){return h in ix?(r[ix[h]]||'').trim():''};
+ var res={ent:[],warn:[]},ident={},dates={},seen={};
+ rows.slice(1).forEach(function(r,k){
+  var L='سطر '+(k+2)+': ';
+  var day=g(r,'Jour').replace(/\s+/g,' ').toLowerCase();
+  var di=DAYS.map(function(d){return d.toLowerCase()}).indexOf(day);
+  if(di<0){res.warn.push(L+'يوم غير معروف «'+g(r,'Jour')+'».');return}
+  [['Nom','nom'],['Prénom','prenom'],['Age','age']].forEach(function(p){
+   var v=g(r,p[0]);if(!v)return;
+   if(ident[p[1]]===undefined)ident[p[1]]=v;else if(ident[p[1]]!==v)res.warn.push(L+'قيمة مختلفة للحقل '+p[0]+' (تم اعتماد الأولى).');
+  });
+  var d=g(r,'Date');
+  if(d){
+   if(!/^\d{4}-\d\d-\d\d$/.test(d))res.warn.push(L+'تاريخ بصيغة غير مدعومة «'+d+'» (تم تجاهله).');
+   else if(dates[di]===undefined)dates[di]=d;
+   else if(dates[di]!==d)res.warn.push(L+'تاريخان مختلفان لنفس اليوم (تم اعتماد الأول).');
+  }
+  var meal=g(r,'Repas'),mes=g(r,'Mesure'),v=g(r,'Valeur');
+  if(!meal&&!mes&&!v)return;
+  var c=findCol(meal,mes);
+  if(!c){res.warn.push(L+'خانة غير معروفة («'+meal+'» / «'+mes+'»).');return}
+  if(!v)return;
+  if(!/^[0-9.,٠-٩]+$/.test(v)){res.warn.push(L+'قيمة غير رقمية «'+v+'» (تم تجاهلها).');return}
+  var id='d'+(di+1)+'_'+c.k;
+  if(id in seen){if(seen[id]!==v)res.warn.push(L+'قيمتان لنفس الخانة (تم اعتماد الأولى).');return}
+  seen[id]=v;
+  res.ent.push({id:id,day:DAYS[di],meal:c.m,mes:c.t,v:v,di:di});
+ });
+ var ents=[];
+ [['nom','Nom'],['prenom','Prénom'],['age','Age']].forEach(function(p){if(ident[p[0]])ents.push({id:p[0],day:'—',meal:'—',mes:p[1],v:ident[p[0]],di:-1})});
+ Object.keys(dates).sort().forEach(function(k){ents.push({id:'date_'+(+k+1),day:DAYS[k],meal:'—',mes:'التاريخ',v:dates[k],di:+k})});
+ res.ent=ents.concat(res.ent);
+ if(!res.ent.length)throw new Error('لا توجد بيانات صالحة للاستيراد في هذا الملف.');
+ return res;
+}
+function pickCsv(inp){
+ var f=inp.files&&inp.files[0];if(!f)return;
+ var rd=new FileReader();
+ rd.onload=function(){
+  try{showImp(parseImport(String(rd.result)))}
+  catch(e){status('تعذّر الاستيراد: '+e.message+' لم يتم تغيير أي بيانات.')}
+  inp.value='';
+ };
+ rd.onerror=function(){status('تعذّرت قراءة الملف. لم يتم تغيير أي بيانات.');inp.value=''};
+ rd.readAsText(f,'UTF-8');
+}
+function stat(e){var c=data[e.id]||'';return c===''?'n':(c===e.v?'s':'c')}
+function showImp(res){
+ ENT=res.ent;var n=0,s=0,c=0;
+ var h='<tr><th>Jour</th><th>الوجبة</th><th>الخانة</th><th>في الملف</th><th>الحالية</th><th>الحالة</th></tr>';
+ ENT.forEach(function(e){
+  var st=stat(e);if(st==='n')n++;else if(st==='s')s++;else c++;
+  var dd=e.di>=0&&e.mes!=='التاريخ'?(data['date_'+(e.di+1)]||''):'';
+  h+='<tr class="'+st+'"><td>'+esc(e.day)+'</td><td>'+esc(e.meal)+'</td><td>'+esc(e.mes)+'</td><td>'+esc(e.v)+'</td><td>'+esc(data[e.id]||'')+'</td><td>'+(st==='n'?'جديد':st==='s'?'مطابق':'متعارض')+'</td></tr>';
+ });
+ document.getElementById('imptab').innerHTML=h;
+ document.getElementById('impsum').innerHTML='عدد العناصر: <b>'+ENT.length+'</b> — جديدة: '+n+' — مطابقة: '+s+' — متعارضة: <b>'+c+'</b>. لم يُعدَّل أي شيء بعد.';
+ document.getElementById('impwarn').innerHTML=res.warn.length?'<b>تنبيهات ('+res.warn.length+'):</b><br>'+res.warn.map(esc).join('<br>'):'';
+ document.getElementById('impow').checked=false;
+ document.getElementById('imp').hidden=false;
+}
+function closeImp(){document.getElementById('imp').hidden=true;ENT=[]}
+function applyEntries(ents,mode,ow){
+ var set=0,keep=0,over=0;
+ if(mode==='replace')data={};
+ ents.forEach(function(e){
+  var c=data[e.id]||'';
+  if(c===''||c===e.v){if(c!==e.v)set++;data[e.id]=e.v}
+  else if(ow){data[e.id]=e.v;over++}
+  else keep++;
+ });
+ return {set:set,keep:keep,over:over};
+}
+function applyImport(mode){
+ if(mode==='replace'&&!confirm('تحذير: سيتم حذف جميع البيانات الحالية في النموذج واستبدالها ببيانات الملف. هل تريد المتابعة؟'))return;
+ var r=applyEntries(ENT,mode,document.getElementById('impow').checked);
+ save();render();closeImp();
+ status(mode==='replace'?'تم استبدال البيانات ببيانات الملف.':'تم الدمج: أُضيفت '+r.set+' قيمة'+(r.over?'، واستُبدلت '+r.over+' قيمة متعارضة':'')+(r.keep?'، وأُبقيت '+r.keep+' قيمة حالية متعارضة دون تغيير':'')+'.');
+}
+render();
+</script>
+</body>
+</html>
