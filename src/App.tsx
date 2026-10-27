@@ -99,12 +99,71 @@ export default function App() {
     setActiveDayIndex(days.length);
   };
 
+  const hasData =
+    Boolean((data.nom && data.nom.trim()) || (data.prenom && data.prenom.trim())) ||
+    Object.keys(data).some(
+      (k) =>
+        (k.startsWith('d') || k.startsWith('date_')) &&
+        Boolean(data[k] && String(data[k]).trim())
+    );
+
   const handleRemoveDay = (index: number) => {
     if (days.length <= 1) return;
-    if (!window.confirm(`هل أنت متأكد من حذف ${days[index]}؟`)) return;
+    const dayLabel = days[index] || `اليوم ${index + 1}`;
 
-    const newDays = days.filter((_, i) => i !== index);
+    const confirmed = window.confirm(
+      `هل أنت متأكد من حذف ${dayLabel}؟ سيتم حذف جميع قياساته وتاريخه نهائيًا، وإعادة ترقيم الأيام التالية ونقل بياناتها.`
+    );
+    if (!confirmed) return;
+
+    const dayNumToDelete = index + 1;
+    const totalDays = days.length;
+    const nextTotalDays = totalDays - 1;
+
+    setData((prev) => {
+      const nextData: GlycemiaData = { ...prev };
+
+      // Shift subsequent days: from dayNumToDelete up to totalDays - 1
+      for (let d = dayNumToDelete; d < totalDays; d++) {
+        const srcDay = d + 1;
+
+        // 1. Delete all current keys for day d first to ensure no leftover keys remain
+        delete nextData[`date_${d}`];
+        Object.keys(nextData).forEach((k) => {
+          if (k.startsWith(`d${d}_`)) {
+            delete nextData[k];
+          }
+        });
+
+        // 2. Copy date from srcDay if it exists
+        if (prev[`date_${srcDay}`]) {
+          nextData[`date_${d}`] = prev[`date_${srcDay}`];
+        }
+
+        // 3. Copy all keys starting with d${srcDay}_ to d${d}_
+        Object.keys(prev).forEach((k) => {
+          if (k.startsWith(`d${srcDay}_`)) {
+            const suffix = k.slice(`d${srcDay}_`.length);
+            nextData[`d${d}_${suffix}`] = prev[k];
+          }
+        });
+      }
+
+      // 4. Delete the last day's (totalDays) date and measurements completely
+      delete nextData[`date_${totalDays}`];
+      Object.keys(nextData).forEach((k) => {
+        if (k.startsWith(`d${totalDays}_`)) {
+          delete nextData[k];
+        }
+      });
+
+      nextData.daysCount = nextTotalDays;
+      return nextData;
+    });
+
+    const newDays = Array.from({ length: nextTotalDays }, (_, i) => `Jour ${i + 1}`);
     setDays(newDays);
+
     if (activeDayIndex >= newDays.length) {
       setActiveDayIndex(newDays.length - 1);
     }
@@ -129,17 +188,24 @@ export default function App() {
     mode: 'merge' | 'replace',
     overwrite: boolean
   ) => {
+    // 1. Determine maximum day index present across both existing and imported data
+    let maxDay = mode === 'replace' ? 4 : days.length;
+
+    Object.keys(imported).forEach((k) => {
+      const m = k.match(/^d(\d+)_/) || k.match(/^date_(\d+)/);
+      if (m) {
+        const dNum = parseInt(m[1], 10);
+        if (dNum > maxDay) maxDay = dNum;
+      }
+    });
+
+    if (imported.daysCount && typeof imported.daysCount === 'number' && imported.daysCount > maxDay) {
+      maxDay = imported.daysCount;
+    }
+
     if (mode === 'replace') {
-      setData(imported);
-      // Determine max days in imported data
-      let maxDay = 4;
-      Object.keys(imported).forEach((k) => {
-        const m = k.match(/^d(\d+)_/);
-        if (m) {
-          const dNum = parseInt(m[1], 10);
-          if (dNum > maxDay) maxDay = dNum;
-        }
-      });
+      const nextData = { ...imported, daysCount: maxDay };
+      setData(nextData);
       setDays(Array.from({ length: maxDay }, (_, i) => `Jour ${i + 1}`));
     } else {
       setData((prev) => {
@@ -150,8 +216,12 @@ export default function App() {
             next[k] = v;
           }
         });
+        next.daysCount = maxDay;
         return next;
       });
+      if (maxDay > days.length) {
+        setDays(Array.from({ length: maxDay }, (_, i) => `Jour ${i + 1}`));
+      }
     }
   };
 
@@ -173,15 +243,18 @@ export default function App() {
   };
 
   const handleLoadDemo = () => {
+    if (hasData) {
+      const confirmed = window.confirm(
+        'تنبيه: توجد بيانات مدخلة حاليًا في الاستمارة. هل أنت متأكد من استبدالها بالبيانات التجريبية؟ سيتم مسح بيانات المريض الحالية.'
+      );
+      if (!confirmed) return false;
+    }
     const demo = loadSampleDemoData();
     setData(demo);
     setDays(['Jour 1', 'Jour 2', 'Jour 3', 'Jour 4']);
     setActiveDayIndex(0);
+    return true;
   };
-
-  const hasData =
-    Boolean(data.nom || data.prenom) ||
-    Object.keys(data).some((k) => k.startsWith('d') && data[k]);
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 pb-20 sm:pb-8">

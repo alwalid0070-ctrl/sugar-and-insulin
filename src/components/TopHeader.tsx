@@ -5,7 +5,7 @@ interface TopHeaderProps {
   currentTab: 'mobile' | 'tablet' | 'analytics' | 'print';
   setCurrentTab: (tab: 'mobile' | 'tablet' | 'analytics' | 'print') => void;
   onOpenExportModal: () => void;
-  onLoadDemo: () => void;
+  onLoadDemo: () => boolean | void;
   hasData: boolean;
 }
 

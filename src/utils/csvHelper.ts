@@ -176,8 +176,12 @@ export function parseCsvImport(text: string, currentDays: string[]): ImportPrevi
     let di = daysLower.indexOf(day);
 
     if (di < 0) {
-      // try matching 'jour X'
-      const m = day.match(/jour\s*(\d+)/i) || day.match(/اليوم\s*(\d+)/i);
+      // try matching 'jour X', 'اليوم X', 'day X', or bare number
+      const m =
+        day.match(/jour\s*(\d+)/i) ||
+        day.match(/اليوم\s*(\d+)/i) ||
+        day.match(/day\s*(\d+)/i) ||
+        day.match(/^(\d+)$/);
       if (m) {
         di = parseInt(m[1], 10) - 1;
       }
@@ -266,7 +270,7 @@ export function parseCsvImport(text: string, currentDays: string[]): ImportPrevi
   });
 
   Object.keys(dates)
-    .sort()
+    .sort((a, b) => Number(a) - Number(b))
     .forEach((k) => {
       const di = +k;
       topEnts.push({

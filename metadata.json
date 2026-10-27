@@ -2,5 +2,5 @@
   "name": "متابعة السكري - ورقة متابعة نسبة السكر والإنسولين",
   "description": "تطبيق متجاوب للهاتف والجهاز اللوحي لمتابعة نسبة السكر في الدم وجرعات الإنسولين، مع تحليلات بيانية وتصدير Word وPDF وCSV وطباعة طبية.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": []
 }

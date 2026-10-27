@@ -22,7 +22,7 @@ interface ImportExportModalProps {
   days: string[];
   onApplyImport: (importedData: Partial<GlycemiaData>, mode: 'merge' | 'replace', overwrite: boolean) => void;
   onClearAll: () => void;
-  onLoadDemo: () => void;
+  onLoadDemo: () => boolean | void;
 }
 
 export const ImportExportModal: React.FC<ImportExportModalProps> = ({
@@ -109,18 +109,68 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
   const handleJsonFilePicked = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setImportError(null);
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const parsed = JSON.parse(String(reader.result || ''));
+        const text = String(reader.result || '').trim();
+        if (!text) {
+          throw new Error('ملف النسخة الاحتياطية فارغ.');
+        }
+
+        let parsed: any;
+        try {
+          parsed = JSON.parse(text);
+        } catch {
+          throw new Error('الملف ليس بصيغة JSON صالحة أو يحتوي على أخطاء نحوية.');
+        }
+
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          throw new Error(
+            'صيغة الملف غير صحيحة: يجب أن يحتوي ملف النسخة الاحتياطية على كائن بيانات (Object) وليس مصفوفة أو قيمة مفردة.'
+          );
+        }
+
+        // Check if object resembles glycemia data
+        const keys = Object.keys(parsed);
+        const hasValidKey = keys.some(
+          (k) =>
+            k === 'nom' ||
+            k === 'prenom' ||
+            k === 'age' ||
+            k === 'unit' ||
+            k.startsWith('d') ||
+            k.startsWith('date_')
+        );
+
+        if (!hasValidKey && keys.length > 0) {
+          throw new Error(
+            'الملف لا يحتوي على بيانات ورقة متابعة السكري المتوافقة مع هذا التطبيق.'
+          );
+        }
+
+        const confirmRestore = window.confirm(
+          'تنبيه: هل أنت متأكد من استعادة هذه النسخة الاحتياطية؟ سيتم استبدال جميع البيانات الحالية ببيانات هذا الملف.'
+        );
+        if (!confirmRestore) {
+          if (jsonInputRef.current) jsonInputRef.current.value = '';
+          return;
+        }
+
         onApplyImport(parsed, 'replace', true);
-        showToast('تم استعادة النسخة الاحتياطية بالكامل');
-      } catch {
-        setImportError('ملف JSON غير صالح');
+        showToast('تم استعادة النسخة الاحتياطية بنجاح');
+      } catch (err: any) {
+        setImportError(
+          err.message || 'تعذّرت استعادة النسخة الاحتياطية: الملف تالف أو غير صالح.'
+        );
       }
       if (jsonInputRef.current) jsonInputRef.current.value = '';
     };
-    reader.readAsText(file);
+    reader.onerror = () => {
+      setImportError('تعذّرت قراءة الملف من الجهاز.');
+      if (jsonInputRef.current) jsonInputRef.current.value = '';
+    };
+    reader.readAsText(file, 'UTF-8');
   };
 
   return (
@@ -369,8 +419,10 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
 
                   <button
                     onClick={() => {
-                      onLoadDemo();
-                      showToast('تم تحميل بيانات تجريبية');
+                      const loaded = onLoadDemo();
+                      if (loaded !== false) {
+                        showToast('تم تحميل بيانات تجريبية');
+                      }
                     }}
                     className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-xl transition-colors border border-amber-200"
                   >
