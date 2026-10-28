@@ -92,8 +92,48 @@ export interface GlycemiaData {
   doctor?: string;
   notes?: string;
   unit?: 'g/L' | 'mg/dL';
-  daysCount?: number;
+  targetMin?: number | string;
+  targetMaxFasting?: number | string;
+  targetMaxPost?: number | string;
   [key: string]: any;
+}
+
+export interface GlycemiaTargets {
+  min: number;
+  maxFasting: number;
+  maxPost: number;
+}
+
+export const SEVERE_HYPO_ALERT =
+  'قراءة منخفضة جدًا: اتبع تعليمات طبيبك للتعامل مع الهبوط، واطلب مساعدة طبية إذا لزم';
+
+export function isSevereHypo(
+  val: any,
+  unit: 'g/L' | 'mg/dL' = 'g/L'
+): boolean {
+  if (val === undefined || val === null || val === '') return false;
+  const n = typeof val === 'number' ? val : parseFloat(String(val).replace(',', '.'));
+  if (isNaN(n) || n <= 0) return false;
+  return unit === 'mg/dL' ? n < 54 : n < 0.54;
+}
+
+export function getTargets(data: GlycemiaData): GlycemiaTargets {
+  const isGL = (data.unit || 'g/L') === 'g/L';
+  const defaultMin = isGL ? 0.70 : 70;
+  const defaultMaxFasting = isGL ? 1.30 : 130;
+  const defaultMaxPost = isGL ? 1.80 : 180;
+
+  const parseNum = (val: any, fallback: number) => {
+    if (val === undefined || val === null || val === '') return fallback;
+    const n = typeof val === 'number' ? val : parseFloat(String(val).replace(',', '.'));
+    return isNaN(n) || n <= 0 ? fallback : n;
+  };
+
+  return {
+    min: parseNum(data.targetMin, defaultMin),
+    maxFasting: parseNum(data.targetMaxFasting, defaultMaxFasting),
+    maxPost: parseNum(data.targetMaxPost, defaultMaxPost),
+  };
 }
 
 export interface ImportEntry {
@@ -103,9 +143,12 @@ export interface ImportEntry {
   mes: string;
   v: string;
   di: number;
+  isGlucose?: boolean;
 }
 
 export interface ImportPreviewResult {
   ent: ImportEntry[];
   warn: string[];
+  hasUnitColumn: boolean;
+  detectedUnit: 'g/L' | 'mg/dL' | null;
 }

@@ -10,6 +10,7 @@ export const STORAGE_KEY = 'glycemia_sheet_v1';
 export function normalizeArabicNums(str: string): string {
   const arabicEastern = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
   return String(str || '')
+    .trim()
     .split('')
     .map((c) => {
       const idx = arabicEastern.indexOf(c);
@@ -20,14 +21,37 @@ export function normalizeArabicNums(str: string): string {
     .join('');
 }
 
+export function convertGlucoseValue(
+  value: string,
+  fromUnit: 'g/L' | 'mg/dL',
+  toUnit: 'g/L' | 'mg/dL'
+): string {
+  if (!value || fromUnit === toUnit) return value;
+  const num = parseFloat(value.replace(',', '.'));
+  if (isNaN(num)) return value;
+
+  if (fromUnit === 'g/L' && toUnit === 'mg/dL') {
+    // 1 g/L = 100 mg/dL (e.g. 1.15 g/L -> 115 mg/dL)
+    const converted = Math.round(num * 100);
+    return converted.toString();
+  } else if (fromUnit === 'mg/dL' && toUnit === 'g/L') {
+    // 100 mg/dL = 1.00 g/L (e.g. 115 mg/dL -> 1.15 g/L)
+    const converted = (Math.round(num) / 100).toFixed(2);
+    return converted;
+  }
+  return value;
+}
+
 export function exportCsv(data: GlycemiaData, days: string[]): void {
+  const currentUnit = data.unit || 'g/L';
   const q = (s: any) => `"${String(s == null ? '' : s).replace(/"/g, '""')}"`;
   const rows: string[][] = [
-    ['Nom', 'Prénom', 'Age', 'Jour', 'Date', 'Repas', 'Mesure', 'Valeur'],
+    ['Nom', 'Prénom', 'Age', 'Jour', 'Date', 'Repas', 'Mesure', 'Valeur', 'Unite', 'Note'],
   ];
 
   days.forEach((d, i) => {
     let count = 0;
+    const dayNote = data[`d${i + 1}_note`] || data[`note_${i + 1}`] || '';
     COLS_DEF.forEach((c) => {
       const v = data[`d${i + 1}_${c.k}`];
       if (v) {
@@ -41,25 +65,40 @@ export function exportCsv(data: GlycemiaData, days: string[]): void {
           c.m,
           c.t,
           v,
+          currentUnit,
+          dayNote,
         ]);
       }
     });
-    if (!count && data[`date_${i + 1}`]) {
+    if (!count && (data[`date_${i + 1}`] || dayNote)) {
       rows.push([
         data.nom || '',
         data.prenom || '',
         data.age || '',
         d,
-        data[`date_${i + 1}`],
+        data[`date_${i + 1}`] || '',
         '',
         '',
         '',
+        currentUnit,
+        dayNote,
       ]);
     }
   });
 
   if (rows.length === 1) {
-    rows.push([data.nom || '', data.prenom || '', data.age || '', '', '', '', '', '']);
+    rows.push([
+      data.nom || '',
+      data.prenom || '',
+      data.age || '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      currentUnit,
+      '',
+    ]);
   }
 
   const csvContent =
@@ -162,9 +201,43 @@ export function parseCsvImport(text: string, currentDays: string[]): ImportPrevi
   }
 
   const g = (r: string[], h: string) => (h in ix ? (r[ix[h]] || '').trim() : '');
-  const res: ImportPreviewResult = { ent: [], warn: [] };
+
+  const unitHeaderKey = Object.keys(ix).find(
+    (h) =>
+      h.toLowerCase() === 'unite' ||
+      h.toLowerCase() === 'unit' ||
+      h.toLowerCase() === 'unité' ||
+      h.toLowerCase() === 'الحدة' ||
+      h.toLowerCase() === 'الوحدة'
+  );
+  const hasUnitColumn = unitHeaderKey !== undefined;
+  let detectedUnit: 'g/L' | 'mg/dL' | null = null;
+
+  if (hasUnitColumn) {
+    for (let i = 1; i < rows.length; i++) {
+      const uVal = g(rows[i], unitHeaderKey!).toLowerCase().trim();
+      if (uVal.includes('mg')) {
+        detectedUnit = 'mg/dL';
+        break;
+      } else if (uVal.includes('g')) {
+        detectedUnit = 'g/L';
+        break;
+      }
+    }
+  }
+
+  const noteHeaderKey = Object.keys(ix).find(
+    (h) =>
+      h.toLowerCase() === 'note' ||
+      h.toLowerCase() === 'notes' ||
+      h.toLowerCase() === 'ملاحظة' ||
+      h.toLowerCase() === 'ملاحظات'
+  );
+
+  const res: { ent: ImportEntry[]; warn: string[] } = { ent: [], warn: [] };
   const ident: Record<string, string> = {};
   const dates: Record<number, string> = {};
+  const notes: Record<number, string> = {};
   const seen: Record<string, string> = {};
 
   const daysLower = currentDays.map((d) => d.toLowerCase());
@@ -215,6 +288,13 @@ export function parseCsvImport(text: string, currentDays: string[]): ImportPrevi
       }
     }
 
+    if (noteHeaderKey) {
+      const n = g(r, noteHeaderKey);
+      if (n && notes[di] === undefined) {
+        notes[di] = n;
+      }
+    }
+
     const meal = g(r, 'Repas');
     const mes = g(r, 'Mesure');
     const v = g(r, 'Valeur');
@@ -248,6 +328,7 @@ export function parseCsvImport(text: string, currentDays: string[]): ImportPrevi
       mes: c.t,
       v: cleanV,
       di,
+      isGlucose: c.type === 'glucose',
     });
   });
 
@@ -265,6 +346,7 @@ export function parseCsvImport(text: string, currentDays: string[]): ImportPrevi
         mes: label,
         v: ident[k],
         di: -1,
+        isGlucose: false,
       });
     }
   });
@@ -280,6 +362,22 @@ export function parseCsvImport(text: string, currentDays: string[]): ImportPrevi
         mes: 'التاريخ (Date)',
         v: dates[di],
         di,
+        isGlucose: false,
+      });
+    });
+
+  Object.keys(notes)
+    .sort((a, b) => Number(a) - Number(b))
+    .forEach((k) => {
+      const di = +k;
+      topEnts.push({
+        id: `d${di + 1}_note`,
+        day: currentDays[di] || `Jour ${di + 1}`,
+        meal: '—',
+        mes: 'الملاحظة (Note)',
+        v: notes[di],
+        di,
+        isGlucose: false,
       });
     });
 
@@ -287,7 +385,12 @@ export function parseCsvImport(text: string, currentDays: string[]): ImportPrevi
   if (!res.ent.length) {
     throw new Error('لا توجد بيانات صالحة للاستيراد في هذا الملف.');
   }
-  return res;
+  return {
+    ent: res.ent,
+    warn: res.warn,
+    hasUnitColumn,
+    detectedUnit,
+  };
 }
 
 export function loadSampleDemoData(): GlycemiaData {
@@ -314,6 +417,11 @@ export function loadSampleDemoData(): GlycemiaData {
     date_2: fmt(d2),
     date_3: fmt(d3),
     date_4: fmt(d4),
+    // Day notes
+    d1_note: 'مشي صباحي 30 دقيقة',
+    d2_note: 'وعكة صحية خفيفة',
+    d3_note: 'وجبة عشاء خفيفة',
+    d4_note: '',
     // Day 1
     d1_b1: '1.18',
     d1_b2: '12',

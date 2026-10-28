@@ -12,9 +12,17 @@ import {
   Syringe,
   Activity,
   AlertCircle,
+  AlertTriangle,
   CheckCircle2,
+  FileText,
 } from 'lucide-react';
-import { GlycemiaData, COLS_DEF } from '../types/glycemia';
+import {
+  GlycemiaData,
+  COLS_DEF,
+  getTargets,
+  isSevereHypo,
+  SEVERE_HYPO_ALERT,
+} from '../types/glycemia';
 import { normalizeArabicNums } from '../utils/csvHelper';
 
 interface MobileDayViewProps {
@@ -39,48 +47,104 @@ export const MobileDayView: React.FC<MobileDayViewProps> = ({
   onCopyPreviousInsulin,
 }) => {
   const currentUnit = data.unit || 'g/L';
+  const targets = getTargets(data);
   const dayNumber = activeDayIndex + 1;
   const currentDateKey = `date_${dayNumber}`;
   const currentDateVal = data[currentDateKey] || '';
 
-  // Evaluate blood sugar reading status
+  // Check if today has severe hypoglycemia (< 0.54 g/L or < 54 mg/dL)
+  const hasSevereHypoToday = ['b1', 'b3', 'l2', 'd2'].some((k) =>
+    isSevereHypo(data[`d${dayNumber}_${k}`], currentUnit)
+  );
+
+  // Evaluate blood sugar reading status using customized targets
   const evaluateGlucose = (valStr: string, isFasting: boolean) => {
     if (!valStr) return null;
     const v = parseFloat(valStr.replace(',', '.'));
     if (isNaN(v)) return null;
 
-    if (currentUnit === 'g/L') {
-      if (v < 0.70) {
-        return { status: 'hypo', label: 'انخفاض في السكر (هبوط)', color: 'amber' };
-      }
-      if (isFasting) {
-        if (v <= 1.30) {
-          return { status: 'target', label: 'مثالي على الريق (0.70 - 1.30)', color: 'emerald' };
-        }
-        return { status: 'hyper', label: 'مرتفع على الريق (> 1.30)', color: 'rose' };
-      } else {
-        if (v <= 1.80) {
-          return { status: 'target', label: 'ضمن الهدف بعد الأكل (< 1.80)', color: 'emerald' };
-        }
-        return { status: 'hyper', label: 'مرتفع بعد الأكل (> 1.80)', color: 'rose' };
-      }
-    } else {
-      // mg/dL
-      if (v < 70) {
-        return { status: 'hypo', label: 'انخفاض في السكر (< 70)', color: 'amber' };
-      }
-      if (isFasting) {
-        if (v <= 130) {
-          return { status: 'target', label: 'مثالي على الريق (70 - 130)', color: 'emerald' };
-        }
-        return { status: 'hyper', label: 'مرتفع على الريق (> 130)', color: 'rose' };
-      } else {
-        if (v <= 180) {
-          return { status: 'target', label: 'ضمن الهدف بعد الأكل (< 180)', color: 'emerald' };
-        }
-        return { status: 'hyper', label: 'مرتفع بعد الأكل (> 180)', color: 'rose' };
-      }
+    if (isSevereHypo(v, currentUnit)) {
+      return {
+        status: 'severe_hypo',
+        label: SEVERE_HYPO_ALERT,
+        color: 'red',
+        isSevere: true,
+      };
     }
+
+    if (v < targets.min) {
+      return {
+        status: 'hypo',
+        label: `انخفاض في السكر (أقل من ${targets.min} ${currentUnit})`,
+        color: 'amber',
+        isSevere: false,
+      };
+    }
+
+    if (isFasting) {
+      if (v <= targets.maxFasting) {
+        return {
+          status: 'target',
+          label: `ضمن الهدف على الريق (${targets.min} - ${targets.maxFasting} ${currentUnit})`,
+          color: 'emerald',
+          isSevere: false,
+        };
+      }
+      return {
+        status: 'hyper',
+        label: `مرتفع على الريق (> ${targets.maxFasting} ${currentUnit})`,
+        color: 'rose',
+        isSevere: false,
+      };
+    } else {
+      if (v <= targets.maxPost) {
+        return {
+          status: 'target',
+          label: `ضمن الهدف بعد الأكل (≤ ${targets.maxPost} ${currentUnit})`,
+          color: 'emerald',
+          isSevere: false,
+        };
+      }
+      return {
+        status: 'hyper',
+        label: `مرتفع بعد الأكل (> ${targets.maxPost} ${currentUnit})`,
+        color: 'rose',
+        isSevere: false,
+      };
+    }
+  };
+
+  const renderFeedback = (res: ReturnType<typeof evaluateGlucose>) => {
+    if (!res) return null;
+    if (res.isSevere) {
+      return (
+        <div
+          role="alert"
+          className="flex items-start gap-2 text-xs font-bold p-3 rounded-xl bg-red-600 text-white shadow-md shadow-red-600/20 border border-red-700 animate-pulse"
+        >
+          <AlertTriangle className="w-5 h-5 shrink-0 text-white mt-0.5" />
+          <span className="leading-snug">{res.label}</span>
+        </div>
+      );
+    }
+    return (
+      <div
+        className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg ${
+          res.color === 'emerald'
+            ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+            : res.color === 'amber'
+            ? 'bg-amber-50 text-amber-700 border border-amber-200'
+            : 'bg-rose-50 text-rose-700 border border-rose-100'
+        }`}
+      >
+        {res.color === 'emerald' ? (
+          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+        ) : (
+          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+        )}
+        <span>{res.label}</span>
+      </div>
+    );
   };
 
   // Helper for step adjustments
@@ -241,6 +305,43 @@ export const MobileDayView: React.FC<MobileDayViewProps> = ({
         </div>
       </div>
 
+      {/* Severe Hypoglycemia Prominent Alert Banner */}
+      {hasSevereHypoToday && (
+        <div
+          role="alert"
+          className="bg-red-50 border-2 border-red-500 rounded-2xl p-4 flex items-start gap-3 text-red-900 shadow-md shadow-red-500/10"
+        >
+          <AlertTriangle className="w-6 h-6 text-red-600 shrink-0 mt-0.5" />
+          <div>
+            <div className="font-extrabold text-sm text-red-700">تنبيه انخفاض حاد في السكر</div>
+            <div className="text-xs font-bold text-red-900 mt-1 leading-relaxed">
+              {SEVERE_HYPO_ALERT}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Optional Short Day Note */}
+      <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+            <FileText className="w-4 h-4 text-amber-600" />
+            <span>ملاحظة اليوم (اختياري)</span>
+          </label>
+          <span className="text-[11px] text-slate-400">
+            تُحفظ مع بيانات اليوم وتظهر في الطباعة وWord وCSV
+          </span>
+        </div>
+        <input
+          type="text"
+          placeholder="مثال: رياضة، مرض، وجبة ثقيلة..."
+          value={data[`d${dayNumber}_note`] || data[`note_${dayNumber}`] || ''}
+          onChange={(e) => onUpdateValue(`d${dayNumber}_note`, e.target.value)}
+          className="w-full text-xs sm:text-sm bg-slate-50 border border-slate-200 focus:border-sky-500 focus:bg-white rounded-xl px-3 py-2 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-100 transition-all"
+          maxLength={150}
+        />
+      </div>
+
       {/* MEAL 1: الصباح (Petit déjeuner) */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="bg-amber-50/70 border-b border-amber-100 px-4 py-3 flex items-center justify-between">
@@ -317,28 +418,7 @@ export const MobileDayView: React.FC<MobileDayViewProps> = ({
             </div>
 
             {/* Visual Medical Range Feedback */}
-            {(() => {
-              const res = evaluateGlucose(data[`d${dayNumber}_b1`], true);
-              if (!res) return null;
-              return (
-                <div
-                  className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg ${
-                    res.color === 'emerald'
-                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                      : res.color === 'amber'
-                      ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                      : 'bg-rose-50 text-rose-700 border border-rose-100'
-                  }`}
-                >
-                  {res.color === 'emerald' ? (
-                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                  ) : (
-                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                  )}
-                  <span>{res.label}</span>
-                </div>
-              );
-            })()}
+            {renderFeedback(evaluateGlucose(data[`d${dayNumber}_b1`], true))}
           </div>
 
           {/* b2: كمية الإنسولين NOVO rapid */}
@@ -436,28 +516,7 @@ export const MobileDayView: React.FC<MobileDayViewProps> = ({
               </div>
             </div>
 
-            {(() => {
-              const res = evaluateGlucose(data[`d${dayNumber}_b3`], false);
-              if (!res) return null;
-              return (
-                <div
-                  className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg ${
-                    res.color === 'emerald'
-                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                      : res.color === 'amber'
-                      ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                      : 'bg-rose-50 text-rose-700 border border-rose-100'
-                  }`}
-                >
-                  {res.color === 'emerald' ? (
-                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                  ) : (
-                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                  )}
-                  <span>{res.label}</span>
-                </div>
-              );
-            })()}
+            {renderFeedback(evaluateGlucose(data[`d${dayNumber}_b3`], false))}
           </div>
         </div>
       </div>
@@ -575,28 +634,7 @@ export const MobileDayView: React.FC<MobileDayViewProps> = ({
               </div>
             </div>
 
-            {(() => {
-              const res = evaluateGlucose(data[`d${dayNumber}_l2`], false);
-              if (!res) return null;
-              return (
-                <div
-                  className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg ${
-                    res.color === 'emerald'
-                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                      : res.color === 'amber'
-                      ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                      : 'bg-rose-50 text-rose-700 border border-rose-100'
-                  }`}
-                >
-                  {res.color === 'emerald' ? (
-                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                  ) : (
-                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                  )}
-                  <span>{res.label}</span>
-                </div>
-              );
-            })()}
+            {renderFeedback(evaluateGlucose(data[`d${dayNumber}_l2`], false))}
           </div>
         </div>
       </div>
@@ -714,28 +752,7 @@ export const MobileDayView: React.FC<MobileDayViewProps> = ({
               </div>
             </div>
 
-            {(() => {
-              const res = evaluateGlucose(data[`d${dayNumber}_d2`], false);
-              if (!res) return null;
-              return (
-                <div
-                  className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg ${
-                    res.color === 'emerald'
-                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                      : res.color === 'amber'
-                      ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                      : 'bg-rose-50 text-rose-700 border border-rose-100'
-                  }`}
-                >
-                  {res.color === 'emerald' ? (
-                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                  ) : (
-                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                  )}
-                  <span>{res.label}</span>
-                </div>
-              );
-            })()}
+            {renderFeedback(evaluateGlucose(data[`d${dayNumber}_d2`], false))}
           </div>
 
           {/* d3: كمية الإنسولين GLARUS / TRESIBA (القاعدي) */}

@@ -7,13 +7,20 @@ import {
   FileText,
   Trash2,
   AlertTriangle,
+  AlertCircle,
   Check,
   RefreshCw,
   Sparkles,
 } from 'lucide-react';
 import { GlycemiaData, ImportPreviewResult } from '../types/glycemia';
-import { exportCsv, parseCsvImport, loadSampleDemoData } from '../utils/csvHelper';
+import {
+  exportCsv,
+  parseCsvImport,
+  loadSampleDemoData,
+  convertGlucoseValue,
+} from '../utils/csvHelper';
 import { downloadDocx } from '../utils/docxExport';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface ImportExportModalProps {
   isOpen: boolean;
@@ -35,12 +42,16 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
   onLoadDemo,
 }) => {
   const [importResult, setImportResult] = useState<ImportPreviewResult | null>(null);
+  const [fileUnit, setFileUnit] = useState<'g/L' | 'mg/dL' | null>(null);
+  const [isConverted, setIsConverted] = useState<boolean>(false);
   const [overwriteConflicts, setOverwriteConflicts] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
 
   const csvInputRef = useRef<HTMLInputElement>(null);
   const jsonInputRef = useRef<HTMLInputElement>(null);
+
+  const appUnit = data.unit || 'g/L';
 
   if (!isOpen) return null;
 
@@ -60,6 +71,8 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
         const text = String(reader.result || '');
         const res = parseCsvImport(text, days);
         setImportResult(res);
+        setFileUnit(res.detectedUnit);
+        setIsConverted(false);
       } catch (err: any) {
         setImportError(err.message || 'تعذّرت قراءة ملف CSV');
       }
@@ -72,6 +85,43 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
     reader.readAsText(file, 'UTF-8');
   };
 
+  const handleConvertImportedValues = () => {
+    if (!importResult || !fileUnit) return;
+    const from = fileUnit;
+    const to = appUnit;
+    const updatedEntries = importResult.ent.map((entry) => {
+      if (entry.isGlucose) {
+        return {
+          ...entry,
+          v: convertGlucoseValue(entry.v, from, to),
+        };
+      }
+      return entry;
+    });
+
+    setImportResult({
+      ...importResult,
+      ent: updatedEntries,
+    });
+    setFileUnit(to);
+    setIsConverted(true);
+    showToast(`تم تحويل قياسات السكر بنجاح من ${from} إلى ${to}`);
+  };
+
+  const handleSelectUnknownFileUnit = (chosenUnit: 'g/L' | 'mg/dL') => {
+    setFileUnit(chosenUnit);
+    if (chosenUnit === appUnit) {
+      setIsConverted(true);
+    } else {
+      setIsConverted(false);
+    }
+  };
+
+  const hasUnitColumn = importResult?.hasUnitColumn ?? false;
+  const isUnitSelected = fileUnit !== null;
+  const hasUnitMismatch = isUnitSelected && fileUnit !== appUnit && !isConverted;
+  const canProceed = isUnitSelected && !hasUnitMismatch;
+
   const handleApplyImportAction = (mode: 'merge' | 'replace') => {
     if (!importResult) return;
     if (mode === 'replace') {
@@ -80,7 +130,9 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
       }
     }
 
-    const updates: Partial<GlycemiaData> = {};
+    const updates: Partial<GlycemiaData> = {
+      unit: fileUnit || appUnit,
+    };
     importResult.ent.forEach((e) => {
       updates[e.id] = e.v;
     });
@@ -218,11 +270,115 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
           {/* If CSV Preview is active */}
           {importResult ? (
             <div className="space-y-4">
-              <div className="bg-sky-50 border border-sky-100 p-3 rounded-xl text-xs text-sky-900">
-                <span className="font-bold">معاينة استيراد CSV:</span> وجدنا{' '}
-                <span className="font-bold">{importResult.ent.length}</span> عنصر صالح
-                للاستيراد.
+              <div className="bg-sky-50 border border-sky-100 p-3 rounded-xl text-xs text-sky-900 flex items-center justify-between">
+                <div>
+                  <span className="font-bold">معاينة استيراد CSV:</span> وجدنا{' '}
+                  <span className="font-bold">{importResult.ent.length}</span> عنصر صالح
+                  للاستيراد.
+                </div>
+                {fileUnit && (
+                  <span className="font-bold text-sky-800 bg-sky-100 px-2.5 py-1 rounded-md">
+                    وحدة الملف: {fileUnit}
+                  </span>
+                )}
               </div>
+
+              {/* 1. Legacy File Alert: Unit is missing in CSV */}
+              {!hasUnitColumn && (
+                <div className="bg-amber-50 border-2 border-amber-300 p-4 rounded-2xl text-amber-950 space-y-3">
+                  <div className="flex items-start gap-2.5">
+                    <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-bold text-sm">
+                        تنبيه: ملف من إصدار سابق (الوحدة غير معروفة)
+                      </div>
+                      <div className="text-xs text-amber-900 mt-1 leading-relaxed">
+                        هذا الملف لا يتضمن عمود الوحدة (Unite). يرجى تحديد الوحدة التي سُجلت بها
+                        قياسات السكر في هذا الملف لمطابقتها مع وحدة التطبيق الحالية ({appUnit}):
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-amber-200">
+                    <span className="text-xs font-bold text-slate-700">حدد وحدة الملف:</span>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectUnknownFileUnit('g/L')}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all ${
+                        fileUnit === 'g/L'
+                          ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                          : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                      }`}
+                    >
+                      g/L (جرام/لتر)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectUnknownFileUnit('mg/dL')}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all ${
+                        fileUnit === 'mg/dL'
+                          ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                          : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                      }`}
+                    >
+                      mg/dL (ملغ/ديسيلتر)
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* 2. Unit Mismatch Warning & Conversion Choices */}
+              {hasUnitMismatch && fileUnit && (
+                <div className="bg-rose-50 border-2 border-rose-300 p-4 rounded-2xl text-rose-950 space-y-3">
+                  <div className="flex items-start gap-2.5">
+                    <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-bold text-sm">
+                        تحذير: وحدة القياس في الملف ({fileUnit}) تختلف عن وحدة التطبيق الحالية ({appUnit})
+                      </div>
+                      <div className="text-xs text-rose-900 mt-1 leading-relaxed">
+                        لا يمكن استيراد البيانات مباشرة لمنع تشويه قراءات السكر (مثلاً 1.20 g/L توازي
+                        120 mg/dL). تم إيقاف الاستيراد حتى تختار أحد الإجراءين التاليين:
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-rose-200">
+                    <button
+                      type="button"
+                      onClick={handleConvertImportedValues}
+                      className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-colors"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      <span>(ب) تحويل قيم السكر إلى ({appUnit})</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImportResult(null);
+                        setFileUnit(null);
+                        setIsConverted(false);
+                      }}
+                      className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-semibold rounded-xl text-xs transition-colors"
+                    >
+                      (أ) إلغاء الاستيراد
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* 3. Reassurance message when unit matches or after conversion */}
+              {canProceed && (
+                <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-xs text-emerald-900 flex items-center gap-2">
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>
+                    {isConverted
+                      ? `تم تحويل قيم السكر بنجاح إلى وحدة التطبيق الحالية (${appUnit}). يمكنك الآن إتمام الاستيراد.`
+                      : `وحدة القياس في الملف (${fileUnit}) مطابقة تمامًا لوحدة التطبيق الحالية (${appUnit}).`}
+                  </span>
+                </div>
+              )}
 
               {importResult.warn.length > 0 && (
                 <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl text-xs text-amber-900 space-y-1">
@@ -244,8 +400,10 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                       <th className="p-2 border-b">اليوم</th>
                       <th className="p-2 border-b">الوجبة</th>
                       <th className="p-2 border-b">الخانة</th>
-                      <th className="p-2 border-b">في الملف</th>
-                      <th className="p-2 border-b">الحالية</th>
+                      <th className="p-2 border-b">
+                        في الملف {fileUnit ? `(${fileUnit})` : ''}
+                      </th>
+                      <th className="p-2 border-b">الحالية ({appUnit})</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -286,21 +444,38 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                 <span>عند الدمج: استبدال القيم المتعارضة بقيم الملف</span>
               </label>
 
+              {!canProceed && (
+                <div className="text-xs text-rose-600 font-semibold flex items-center gap-1.5">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>
+                    الاستيراد موقوف حتى اختيار إجراء مناسب لمطابقة وحدة القياس أعلاه.
+                  </span>
+                </div>
+              )}
+
               <div className="flex flex-wrap items-center gap-2 pt-2">
                 <button
                   onClick={() => handleApplyImportAction('merge')}
-                  className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-xl text-xs transition-colors"
+                  disabled={!canProceed}
+                  className="px-4 py-2 bg-sky-600 hover:bg-sky-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-xl text-xs transition-colors shadow-sm"
+                  title={!canProceed ? 'يرجى مطابقة الوحدة أولاً' : undefined}
                 >
                   دمج البيانات مع الحالية
                 </button>
                 <button
                   onClick={() => handleApplyImportAction('replace')}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-semibold rounded-xl text-xs transition-colors"
+                  disabled={!canProceed}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-900 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-xl text-xs transition-colors shadow-sm"
+                  title={!canProceed ? 'يرجى مطابقة الوحدة أولاً' : undefined}
                 >
                   استبدال كامل النموذج
                 </button>
                 <button
-                  onClick={() => setImportResult(null)}
+                  onClick={() => {
+                    setImportResult(null);
+                    setFileUnit(null);
+                    setIsConverted(false);
+                  }}
                   className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs transition-colors"
                 >
                   إلغاء المعاينة
@@ -416,6 +591,8 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                   >
                     حفظ نسخة احتياطية (JSON)
                   </button>
+
+                  <PWAInstallButton />
 
                   <button
                     onClick={() => {

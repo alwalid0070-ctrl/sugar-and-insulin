@@ -100,9 +100,14 @@ function buildDocxXml(data: GlycemiaData, days: string[]): string {
   // Day rows
   days.forEach((d, di) => {
     const dateVal = fmtD(data[`date_${di + 1}`]);
-    let r = tc(W[0], d, { jc: 'left' }).replace(
+    const dayNote = data[`d${di + 1}_note`] || data[`note_${di + 1}`] || '';
+    let dayCellContent = para(d, 18, 'left') + para(dateVal, 15, 'left');
+    if (dayNote) {
+      dayCellContent += para('Note: ' + dayNote, 13, 'left');
+    }
+    let r = tc(W[0], '', { jc: 'left' }).replace(
       '</w:tc>',
-      para(dateVal, 16, 'left') + '</w:tc>'
+      dayCellContent + '</w:tc>'
     );
     cols.forEach((c, j) => {
       const val = c ? data[`d${di + 1}_${c.k}`] || '' : '';
@@ -130,6 +135,18 @@ function buildDocxXml(data: GlycemiaData, days: string[]): string {
     rows +
     '</w:tbl>';
 
+  let notesBlock = '';
+  const daysWithNotes = days
+    .map((d, di) => ({ day: d, note: data[`d${di + 1}_note`] || data[`note_${di + 1}`] }))
+    .filter((x) => Boolean(x.note));
+  if (daysWithNotes.length > 0) {
+    notesBlock += para('Remarques journalières / ملاحظات الأيام :', 18, 'right');
+    daysWithNotes.forEach((x) => {
+      notesBlock += para(`${x.day}: ${x.note}`, 16, 'right');
+    });
+    notesBlock += para('', 16);
+  }
+
   const idp = para(
     'Nom : ' +
       (data.nom || '') +
@@ -146,6 +163,7 @@ function buildDocxXml(data: GlycemiaData, days: string[]): string {
     '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' +
     tbl +
     para('', 22) +
+    notesBlock +
     idp +
     '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="900" w:right="500" w:bottom="900" w:left="500" w:header="400" w:footer="400" w:gutter="0"/></w:sectPr></w:body></w:document>'
   );

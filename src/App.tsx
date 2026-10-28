@@ -1,7 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Smartphone, Table2, TrendingUp, Printer, Plus, Download, Sparkles } from 'lucide-react';
+import {
+  Smartphone,
+  Table2,
+  TrendingUp,
+  Printer,
+  Plus,
+  Download,
+  Sparkles,
+  AlertTriangle,
+} from 'lucide-react';
 import { GlycemiaData } from './types/glycemia';
-import { STORAGE_KEY, loadSampleDemoData } from './utils/csvHelper';
+import { STORAGE_KEY, loadSampleDemoData, convertGlucoseValue } from './utils/csvHelper';
 import { TopHeader } from './components/TopHeader';
 import { PatientBar } from './components/PatientBar';
 import { MobileDayView } from './components/MobileDayView';
@@ -10,6 +19,7 @@ import { AnalyticsView } from './components/AnalyticsView';
 import { PrintSheetView } from './components/PrintSheetView';
 import { ImportExportModal } from './components/ImportExportModal';
 import { PatientModal } from './components/PatientModal';
+import { UnitChangeModal } from './components/UnitChangeModal';
 
 const DEFAULT_DAYS = ['jour 1', 'Jour 2', 'Jour 3', 'Jour 4'];
 
@@ -42,6 +52,12 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState<'mobile' | 'tablet' | 'analytics' | 'print'>('mobile');
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
   const [isPatientModalOpen, setIsPatientModalOpen] = useState<boolean>(false);
+  const [pendingUnitChange, setPendingUnitChange] = useState<{
+    fromUnit: 'g/L' | 'mg/dL';
+    toUnit: 'g/L' | 'mg/dL';
+    count: number;
+  } | null>(null);
+  const [unitAlertMessage, setUnitAlertMessage] = useState<string | null>(null);
 
   // Sync state to LocalStorage
   useEffect(() => {
@@ -51,6 +67,80 @@ export default function App() {
       // LocalStorage might fail in private browsing
     }
   }, [data, days]);
+
+  const handleRequestUnitChange = (newUnit: 'g/L' | 'mg/dL') => {
+    const currentUnit = data.unit || 'g/L';
+    if (newUnit === currentUnit) return;
+
+    // Count recorded blood sugar readings in b1, b3, l2, d2 across all days
+    let glucoseReadingsCount = 0;
+    Object.keys(data).forEach((k) => {
+      const m = k.match(/^d\d+_(b1|b3|l2|d2)$/);
+      if (m && data[k] !== undefined && String(data[k]).trim() !== '') {
+        glucoseReadingsCount++;
+      }
+    });
+
+    if (glucoseReadingsCount === 0) {
+      // No recorded glucose readings exist: switch directly and save
+      setData((prev) => ({ ...prev, unit: newUnit }));
+      setUnitAlertMessage(null);
+      return;
+    }
+
+    // Recorded readings exist: Ask the patient first! Do not switch before answer.
+    setPendingUnitChange({
+      fromUnit: currentUnit,
+      toUnit: newUnit,
+      count: glucoseReadingsCount,
+    });
+  };
+
+  const handleConfirmUnitChange = (convert: boolean) => {
+    if (!pendingUnitChange) return;
+    const { fromUnit, toUnit } = pendingUnitChange;
+
+    if (convert) {
+      // Convert ONLY glucose slots (b1, b3, l2, d2 across all days); DO NOT touch insulin slots!
+      setData((prev) => {
+        const next: GlycemiaData = { ...prev, unit: toUnit };
+        Object.keys(next).forEach((k) => {
+          const m = k.match(/^d\d+_(b1|b3|l2|d2)$/);
+          if (m && next[k] !== undefined && String(next[k]).trim() !== '') {
+            next[k] = convertGlucoseValue(String(next[k]), fromUnit, toUnit);
+          }
+        });
+
+        // Also convert custom target thresholds if configured
+        const convertTarget = (val: any) => {
+          if (val === undefined || val === null || val === '') return undefined;
+          const parsed = typeof val === 'number' ? val : parseFloat(String(val).replace(',', '.'));
+          if (isNaN(parsed)) return undefined;
+          return toUnit === 'mg/dL' ? Math.round(parsed * 100) : +(parsed / 100).toFixed(2);
+        };
+
+        if (next.targetMin !== undefined) next.targetMin = convertTarget(next.targetMin);
+        if (next.targetMaxFasting !== undefined) next.targetMaxFasting = convertTarget(next.targetMaxFasting);
+        if (next.targetMaxPost !== undefined) next.targetMaxPost = convertTarget(next.targetMaxPost);
+
+        return next;
+      });
+      setUnitAlertMessage(null);
+    } else {
+      // Leave values as-is with a clear alert that current numbers may not match the new unit!
+      setData((prev) => ({ ...prev, unit: toUnit }));
+      setUnitAlertMessage(
+        `تنبيه: تم تغيير الوحدة إلى (${toUnit}) دون تحويل القراءات السابقة؛ قد لا تتوافق الأرقام الحالية المسجلة مع الوحدة الجديدة.`
+      );
+    }
+
+    setPendingUnitChange(null);
+  };
+
+  const handleCancelUnitChange = () => {
+    // Cancel: keep current unit and values untouched
+    setPendingUnitChange(null);
+  };
 
   const handleUpdateValue = (id: string, value: string) => {
     setData((prev) => ({
@@ -103,7 +193,7 @@ export default function App() {
     Boolean((data.nom && data.nom.trim()) || (data.prenom && data.prenom.trim())) ||
     Object.keys(data).some(
       (k) =>
-        (k.startsWith('d') || k.startsWith('date_')) &&
+        (k.startsWith('d') || k.startsWith('date_') || k.startsWith('note_')) &&
         Boolean(data[k] && String(data[k]).trim())
     );
 
@@ -112,7 +202,7 @@ export default function App() {
     const dayLabel = days[index] || `اليوم ${index + 1}`;
 
     const confirmed = window.confirm(
-      `هل أنت متأكد من حذف ${dayLabel}؟ سيتم حذف جميع قياساته وتاريخه نهائيًا، وإعادة ترقيم الأيام التالية ونقل بياناتها.`
+      `هل أنت متأكد من حذف ${dayLabel}؟ سيتم حذف جميع قياساته وتاريخه وملاحظاته نهائيًا، وإعادة ترقيم الأيام التالية ونقل بياناتها.`
     );
     if (!confirmed) return;
 
@@ -129,18 +219,22 @@ export default function App() {
 
         // 1. Delete all current keys for day d first to ensure no leftover keys remain
         delete nextData[`date_${d}`];
+        delete nextData[`note_${d}`];
         Object.keys(nextData).forEach((k) => {
           if (k.startsWith(`d${d}_`)) {
             delete nextData[k];
           }
         });
 
-        // 2. Copy date from srcDay if it exists
+        // 2. Copy date and note from srcDay if they exist
         if (prev[`date_${srcDay}`]) {
           nextData[`date_${d}`] = prev[`date_${srcDay}`];
         }
+        if (prev[`note_${srcDay}`]) {
+          nextData[`note_${d}`] = prev[`note_${srcDay}`];
+        }
 
-        // 3. Copy all keys starting with d${srcDay}_ to d${d}_
+        // 3. Copy all keys starting with d${srcDay}_ to d${d}_ (including d${srcDay}_note)
         Object.keys(prev).forEach((k) => {
           if (k.startsWith(`d${srcDay}_`)) {
             const suffix = k.slice(`d${srcDay}_`.length);
@@ -149,8 +243,9 @@ export default function App() {
         });
       }
 
-      // 4. Delete the last day's (totalDays) date and measurements completely
+      // 4. Delete the last day's (totalDays) date, note, and measurements completely
       delete nextData[`date_${totalDays}`];
+      delete nextData[`note_${totalDays}`];
       Object.keys(nextData).forEach((k) => {
         if (k.startsWith(`d${totalDays}_`)) {
           delete nextData[k];
@@ -192,7 +287,7 @@ export default function App() {
     let maxDay = mode === 'replace' ? 4 : days.length;
 
     Object.keys(imported).forEach((k) => {
-      const m = k.match(/^d(\d+)_/) || k.match(/^date_(\d+)/);
+      const m = k.match(/^d(\d+)_/) || k.match(/^date_(\d+)/) || k.match(/^note_(\d+)/);
       if (m) {
         const dNum = parseInt(m[1], 10);
         if (dNum > maxDay) maxDay = dNum;
@@ -204,7 +299,16 @@ export default function App() {
     }
 
     if (mode === 'replace') {
-      const nextData = { ...imported, daysCount: maxDay };
+      const nextData: GlycemiaData = {
+        unit: imported.unit || data.unit || 'g/L',
+        targetMin: imported.targetMin ?? data.targetMin,
+        targetMaxFasting: imported.targetMaxFasting ?? data.targetMaxFasting,
+        targetMaxPost: imported.targetMaxPost ?? data.targetMaxPost,
+        diabetesType: imported.diabetesType ?? data.diabetesType,
+        doctor: imported.doctor ?? data.doctor,
+        ...imported,
+        daysCount: maxDay,
+      };
       setData(nextData);
       setDays(Array.from({ length: maxDay }, (_, i) => `Jour ${i + 1}`));
     } else {
@@ -269,11 +373,32 @@ export default function App() {
 
       {/* Patient Profile Bar (hidden in print preview) */}
       {currentTab !== 'print' && (
-        <PatientBar
-          data={data}
-          onChangeData={handleChangeData}
-          onOpenPatientModal={() => setIsPatientModalOpen(true)}
-        />
+        <>
+          <PatientBar
+            data={data}
+            onChangeData={handleChangeData}
+            onOpenPatientModal={() => setIsPatientModalOpen(true)}
+            onRequestUnitChange={handleRequestUnitChange}
+          />
+
+          {unitAlertMessage && (
+            <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 sm:px-6 no-print animate-in fade-in duration-150">
+              <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 text-xs text-amber-900 font-medium">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>{unitAlertMessage}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setUnitAlertMessage(null)}
+                  className="text-amber-800 hover:text-amber-950 font-bold px-2 py-0.5 rounded hover:bg-amber-100 transition-colors"
+                >
+                  إغلاق
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Main View Area */}
@@ -302,7 +427,11 @@ export default function App() {
         )}
 
         {currentTab === 'analytics' && (
-          <AnalyticsView data={data} days={days} />
+          <AnalyticsView
+            data={data}
+            days={days}
+            onChangeData={handleChangeData}
+          />
         )}
 
         {currentTab === 'print' && (

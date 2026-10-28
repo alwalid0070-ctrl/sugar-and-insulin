@@ -6,18 +6,24 @@ interface PatientBarProps {
   data: GlycemiaData;
   onChangeData: (updates: Partial<GlycemiaData>) => void;
   onOpenPatientModal: () => void;
+  onRequestUnitChange?: (newUnit: 'g/L' | 'mg/dL') => void;
 }
 
 export const PatientBar: React.FC<PatientBarProps> = ({
   data,
   onChangeData,
   onOpenPatientModal,
+  onRequestUnitChange,
 }) => {
   const currentUnit = data.unit || 'g/L';
 
   const toggleUnit = (newUnit: 'g/L' | 'mg/dL') => {
     if (newUnit === currentUnit) return;
-    onChangeData({ unit: newUnit });
+    if (onRequestUnitChange) {
+      onRequestUnitChange(newUnit);
+    } else {
+      onChangeData({ unit: newUnit });
+    }
   };
 
   const patientName = `${data.prenom || ''} ${data.nom || ''}`.trim();

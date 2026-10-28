@@ -1,5 +1,6 @@
 import React from 'react';
 import { Smartphone, Table2, TrendingUp, Printer, Download, Sparkles } from 'lucide-react';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface TopHeaderProps {
   currentTab: 'mobile' | 'tablet' | 'analytics' | 'print';
@@ -102,6 +103,8 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
               <span>بيانات تجريبية</span>
             </button>
           )}
+
+          <PWAInstallButton />
 
           <button
             onClick={onOpenExportModal}

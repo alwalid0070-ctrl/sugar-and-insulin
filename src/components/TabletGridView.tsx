@@ -1,6 +1,12 @@
 import React from 'react';
-import { Plus, Trash2, Calendar, FileText } from 'lucide-react';
-import { GlycemiaData, COLS_DEF } from '../types/glycemia';
+import { Plus, Trash2, Calendar, FileText, AlertTriangle } from 'lucide-react';
+import {
+  GlycemiaData,
+  COLS_DEF,
+  getTargets,
+  isSevereHypo,
+  SEVERE_HYPO_ALERT,
+} from '../types/glycemia';
 import { normalizeArabicNums } from '../utils/csvHelper';
 
 interface TabletGridViewProps {
@@ -19,6 +25,15 @@ export const TabletGridView: React.FC<TabletGridViewProps> = ({
   onRemoveDay,
 }) => {
   const currentUnit = data.unit || 'g/L';
+  const targets = getTargets(data);
+
+  // Check if any blood sugar reading in the table is severe hypoglycemia
+  const hasSevereHypo = days.some((_, idx) => {
+    const dayNum = idx + 1;
+    return ['b1', 'b3', 'l2', 'd2'].some((k) =>
+      isSevereHypo(data[`d${dayNum}_${k}`], currentUnit)
+    );
+  });
 
   // Keydown navigation: Enter key moves to next cell
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -41,17 +56,11 @@ export const TabletGridView: React.FC<TabletGridViewProps> = ({
     const v = parseFloat(valStr.replace(',', '.'));
     if (isNaN(v)) return 'bg-white';
 
-    if (currentUnit === 'g/L') {
-      if (v < 0.70) return 'bg-amber-100/60 text-amber-950 font-bold';
-      if (isFasting && v <= 1.30) return 'bg-emerald-50/70 text-emerald-950';
-      if (!isFasting && v <= 1.80) return 'bg-emerald-50/70 text-emerald-950';
-      return 'bg-rose-50/70 text-rose-950';
-    } else {
-      if (v < 70) return 'bg-amber-100/60 text-amber-950 font-bold';
-      if (isFasting && v <= 130) return 'bg-emerald-50/70 text-emerald-950';
-      if (!isFasting && v <= 180) return 'bg-emerald-50/70 text-emerald-950';
-      return 'bg-rose-50/70 text-rose-950';
-    }
+    if (isSevereHypo(v, currentUnit)) return 'bg-red-100 text-red-950 font-black border-2 border-red-600';
+    if (v < targets.min) return 'bg-amber-100/60 text-amber-950 font-bold';
+    if (isFasting && v <= targets.maxFasting) return 'bg-emerald-50/70 text-emerald-950';
+    if (!isFasting && v <= targets.maxPost) return 'bg-emerald-50/70 text-emerald-950';
+    return 'bg-rose-50/70 text-rose-950';
   };
 
   return (
@@ -82,6 +91,22 @@ export const TabletGridView: React.FC<TabletGridViewProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Severe Hypoglycemia Prominent Alert Banner */}
+      {hasSevereHypo && (
+        <div
+          role="alert"
+          className="bg-red-50 border-2 border-red-500 rounded-2xl p-4 flex items-start gap-3 text-red-900 shadow-md shadow-red-500/10"
+        >
+          <AlertTriangle className="w-6 h-6 text-red-600 shrink-0 mt-0.5" />
+          <div>
+            <div className="font-extrabold text-sm text-red-700">تنبيه انخفاض حاد في السكر</div>
+            <div className="text-xs font-bold text-red-900 mt-1 leading-relaxed">
+              {SEVERE_HYPO_ALERT}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Clinical Table Container with horizontal scroll on mobile/tablet */}
       <div className="bg-white rounded-2xl border border-slate-300 shadow-sm overflow-hidden">
@@ -205,6 +230,16 @@ export const TabletGridView: React.FC<TabletGridViewProps> = ({
                           value={dateVal}
                           onChange={(e) => onUpdateValue(dateKey, e.target.value)}
                           className="w-full text-[11px] bg-white border border-slate-300 rounded px-1 py-0.5 text-center text-slate-700"
+                        />
+                      </div>
+                      <div className="mt-1.5">
+                        <input
+                          type="text"
+                          placeholder="ملاحظة (رياضة، مرض...)"
+                          value={data[`d${dayNum}_note`] || data[`note_${dayNum}`] || ''}
+                          onChange={(e) => onUpdateValue(`d${dayNum}_note`, e.target.value)}
+                          className="w-full text-[10px] bg-white border border-slate-300 focus:border-sky-500 rounded px-1.5 py-0.5 text-slate-700 placeholder:text-slate-400 focus:outline-none"
+                          title="ملاحظة اليوم (اختياري)"
                         />
                       </div>
                     </td>
@@ -380,12 +415,16 @@ export const TabletGridView: React.FC<TabletGridViewProps> = ({
           <div className="flex items-center gap-3">
             <span className="font-bold text-slate-700">دلالات الألوان:</span>
             <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-full bg-emerald-300 border border-emerald-400 inline-block"></span>
-              <span>طبيعي ضمن الهدف</span>
+              <span className="w-3 h-3 rounded-full bg-red-600 border border-red-700 inline-block"></span>
+              <span className="font-semibold text-red-700">انخفاض شديد (&lt; {currentUnit === 'g/L' ? '0.54' : '54'})</span>
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-3 h-3 rounded-full bg-amber-300 border border-amber-400 inline-block"></span>
               <span>انخفاض (هبوط سكر)</span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-full bg-emerald-300 border border-emerald-400 inline-block"></span>
+              <span>طبيعي ضمن الهدف</span>
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-3 h-3 rounded-full bg-rose-300 border border-rose-400 inline-block"></span>

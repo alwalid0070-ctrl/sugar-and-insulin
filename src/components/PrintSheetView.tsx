@@ -210,6 +210,7 @@ export const PrintSheetView: React.FC<PrintSheetViewProps> = ({
               {days.map((dayLabel, idx) => {
                 const dayNum = idx + 1;
                 const dateVal = data[`date_${dayNum}`] || '';
+                const dayNote = data[`d${dayNum}_note`] || data[`note_${dayNum}`] || '';
 
                 return (
                   <tr
@@ -219,9 +220,14 @@ export const PrintSheetView: React.FC<PrintSheetViewProps> = ({
                     {/* Day / Date Cell */}
                     <td className="border-r border-slate-900 p-1 text-center font-bold text-sm bg-slate-50">
                       <div>{dayLabel}</div>
-                      <div className="text-xs font-normal text-slate-600 mt-1">
+                      <div className="text-xs font-normal text-slate-600 mt-0.5">
                         {dateVal || '..../../..'}
                       </div>
+                      {dayNote && (
+                        <div className="mt-1 px-1 py-0.5 bg-amber-50 rounded border border-amber-200 text-[10px] font-normal text-amber-950 leading-tight">
+                          <span className="font-semibold">ملاحظة:</span> {dayNote}
+                        </div>
+                      )}
                     </td>
 
                     {/* b1 */}
@@ -271,6 +277,24 @@ export const PrintSheetView: React.FC<PrintSheetViewProps> = ({
               })}
             </tbody>
           </table>
+
+          {/* Day Notes summary section if present */}
+          {days.some((_, i) => data[`d${i + 1}_note`] || data[`note_${i + 1}`]) && (
+            <div className="mt-3 p-2.5 bg-slate-50 border border-slate-300 rounded text-xs text-slate-700">
+              <span className="font-bold text-slate-900">ملاحظات الأيام (Remarques) :</span>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-[11px]">
+                {days.map((d, i) => {
+                  const n = data[`d${i + 1}_note`] || data[`note_${i + 1}`];
+                  if (!n) return null;
+                  return (
+                    <span key={i}>
+                      <span className="font-semibold">{d}:</span> {n}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Footer note and signatures */}
           <div className="mt-8 pt-4 border-t border-slate-300 flex items-end justify-between text-xs text-slate-600">
