@@ -100,7 +100,7 @@ function buildDocxXml(data: GlycemiaData, days: string[]): string {
   // Day rows
   days.forEach((d, di) => {
     const dateVal = fmtD(data[`date_${di + 1}`]);
-    const dayNote = data[`d${di + 1}_note`] || data[`note_${di + 1}`] || '';
+    const dayNote = data[`d${di + 1}_note`] || '';
     let dayCellContent = para(d, 18, 'left') + para(dateVal, 15, 'left');
     if (dayNote) {
       dayCellContent += para('Note: ' + dayNote, 13, 'left');
@@ -137,7 +137,7 @@ function buildDocxXml(data: GlycemiaData, days: string[]): string {
 
   let notesBlock = '';
   const daysWithNotes = days
-    .map((d, di) => ({ day: d, note: data[`d${di + 1}_note`] || data[`note_${di + 1}`] }))
+    .map((d, di) => ({ day: d, note: data[`d${di + 1}_note`] }))
     .filter((x) => Boolean(x.note));
   if (daysWithNotes.length > 0) {
     notesBlock += para('Remarques journalières / ملاحظات الأيام :', 18, 'right');

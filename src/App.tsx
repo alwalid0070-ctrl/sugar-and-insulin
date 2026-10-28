@@ -29,7 +29,21 @@ export default function App() {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (parsed && typeof parsed === 'object') return parsed;
+        if (parsed && typeof parsed === 'object') {
+          // Migrate old note_{n} to unified d{n}_note so no previously saved data is lost
+          Object.keys(parsed).forEach((k) => {
+            const m = k.match(/^note_(\d+)$/);
+            if (m) {
+              const dayNum = m[1];
+              const newKey = `d${dayNum}_note`;
+              if (!parsed[newKey] && parsed[k]) {
+                parsed[newKey] = parsed[k];
+              }
+              delete parsed[k];
+            }
+          });
+          return parsed;
+        }
       }
     } catch {
       // ignore
@@ -165,9 +179,11 @@ export default function App() {
     const prevDateStr = data[`date_${days.length}`];
     if (prevDateStr) {
       try {
-        const d = new Date(prevDateStr);
-        d.setDate(d.getDate() + 1);
-        nextDate = d.toISOString().split('T')[0];
+        const d = new Date(prevDateStr + 'T00:00:00Z');
+        if (!isNaN(d.getTime())) {
+          d.setUTCDate(d.getUTCDate() + 1);
+          nextDate = d.toISOString().split('T')[0];
+        }
       } catch {
         // ignore
       }
@@ -193,7 +209,7 @@ export default function App() {
     Boolean((data.nom && data.nom.trim()) || (data.prenom && data.prenom.trim())) ||
     Object.keys(data).some(
       (k) =>
-        (k.startsWith('d') || k.startsWith('date_') || k.startsWith('note_')) &&
+        (k.startsWith('d') || k.startsWith('date_')) &&
         Boolean(data[k] && String(data[k]).trim())
     );
 
@@ -219,19 +235,15 @@ export default function App() {
 
         // 1. Delete all current keys for day d first to ensure no leftover keys remain
         delete nextData[`date_${d}`];
-        delete nextData[`note_${d}`];
         Object.keys(nextData).forEach((k) => {
           if (k.startsWith(`d${d}_`)) {
             delete nextData[k];
           }
         });
 
-        // 2. Copy date and note from srcDay if they exist
+        // 2. Copy date from srcDay if it exists
         if (prev[`date_${srcDay}`]) {
           nextData[`date_${d}`] = prev[`date_${srcDay}`];
-        }
-        if (prev[`note_${srcDay}`]) {
-          nextData[`note_${d}`] = prev[`note_${srcDay}`];
         }
 
         // 3. Copy all keys starting with d${srcDay}_ to d${d}_ (including d${srcDay}_note)
@@ -243,9 +255,8 @@ export default function App() {
         });
       }
 
-      // 4. Delete the last day's (totalDays) date, note, and measurements completely
+      // 4. Delete the last day's (totalDays) date and measurements (including d${totalDays}_note) completely
       delete nextData[`date_${totalDays}`];
-      delete nextData[`note_${totalDays}`];
       Object.keys(nextData).forEach((k) => {
         if (k.startsWith(`d${totalDays}_`)) {
           delete nextData[k];
@@ -283,30 +294,44 @@ export default function App() {
     mode: 'merge' | 'replace',
     overwrite: boolean
   ) => {
+    // Migrate old note_{n} in imported data to d{n}_note if present
+    const normalizedImported: Partial<GlycemiaData> = { ...imported };
+    Object.keys(normalizedImported).forEach((k) => {
+      const m = k.match(/^note_(\d+)$/);
+      if (m) {
+        const dayNum = m[1];
+        const newKey = `d${dayNum}_note`;
+        if (!normalizedImported[newKey] && normalizedImported[k]) {
+          normalizedImported[newKey] = normalizedImported[k];
+        }
+        delete normalizedImported[k];
+      }
+    });
+
     // 1. Determine maximum day index present across both existing and imported data
     let maxDay = mode === 'replace' ? 4 : days.length;
 
-    Object.keys(imported).forEach((k) => {
-      const m = k.match(/^d(\d+)_/) || k.match(/^date_(\d+)/) || k.match(/^note_(\d+)/);
+    Object.keys(normalizedImported).forEach((k) => {
+      const m = k.match(/^d(\d+)_/) || k.match(/^date_(\d+)/);
       if (m) {
         const dNum = parseInt(m[1], 10);
         if (dNum > maxDay) maxDay = dNum;
       }
     });
 
-    if (imported.daysCount && typeof imported.daysCount === 'number' && imported.daysCount > maxDay) {
-      maxDay = imported.daysCount;
+    if (normalizedImported.daysCount && typeof normalizedImported.daysCount === 'number' && normalizedImported.daysCount > maxDay) {
+      maxDay = normalizedImported.daysCount;
     }
 
     if (mode === 'replace') {
       const nextData: GlycemiaData = {
-        unit: imported.unit || data.unit || 'g/L',
-        targetMin: imported.targetMin ?? data.targetMin,
-        targetMaxFasting: imported.targetMaxFasting ?? data.targetMaxFasting,
-        targetMaxPost: imported.targetMaxPost ?? data.targetMaxPost,
-        diabetesType: imported.diabetesType ?? data.diabetesType,
-        doctor: imported.doctor ?? data.doctor,
-        ...imported,
+        unit: normalizedImported.unit || data.unit || 'g/L',
+        targetMin: normalizedImported.targetMin ?? data.targetMin,
+        targetMaxFasting: normalizedImported.targetMaxFasting ?? data.targetMaxFasting,
+        targetMaxPost: normalizedImported.targetMaxPost ?? data.targetMaxPost,
+        diabetesType: normalizedImported.diabetesType ?? data.diabetesType,
+        doctor: normalizedImported.doctor ?? data.doctor,
+        ...normalizedImported,
         daysCount: maxDay,
       };
       setData(nextData);
@@ -314,7 +339,7 @@ export default function App() {
     } else {
       setData((prev) => {
         const next = { ...prev };
-        Object.entries(imported).forEach(([k, v]) => {
+        Object.entries(normalizedImported).forEach(([k, v]) => {
           if (v === undefined || v === '') return;
           if (next[k] === undefined || next[k] === '' || overwrite) {
             next[k] = v;

@@ -210,7 +210,7 @@ export const PrintSheetView: React.FC<PrintSheetViewProps> = ({
               {days.map((dayLabel, idx) => {
                 const dayNum = idx + 1;
                 const dateVal = data[`date_${dayNum}`] || '';
-                const dayNote = data[`d${dayNum}_note`] || data[`note_${dayNum}`] || '';
+                const dayNote = data[`d${dayNum}_note`] || '';
 
                 return (
                   <tr
@@ -279,12 +279,12 @@ export const PrintSheetView: React.FC<PrintSheetViewProps> = ({
           </table>
 
           {/* Day Notes summary section if present */}
-          {days.some((_, i) => data[`d${i + 1}_note`] || data[`note_${i + 1}`]) && (
+          {days.some((_, i) => data[`d${i + 1}_note`]) && (
             <div className="mt-3 p-2.5 bg-slate-50 border border-slate-300 rounded text-xs text-slate-700">
               <span className="font-bold text-slate-900">ملاحظات الأيام (Remarques) :</span>
               <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-[11px]">
                 {days.map((d, i) => {
-                  const n = data[`d${i + 1}_note`] || data[`note_${i + 1}`];
+                  const n = data[`d${i + 1}_note`];
                   if (!n) return null;
                   return (
                     <span key={i}>

@@ -51,7 +51,7 @@ export function exportCsv(data: GlycemiaData, days: string[]): void {
 
   days.forEach((d, i) => {
     let count = 0;
-    const dayNote = data[`d${i + 1}_note`] || data[`note_${i + 1}`] || '';
+    const dayNote = data[`d${i + 1}_note`] || '';
     COLS_DEF.forEach((c) => {
       const v = data[`d${i + 1}_${c.k}`];
       if (v) {

@@ -335,7 +335,7 @@ export const MobileDayView: React.FC<MobileDayViewProps> = ({
         <input
           type="text"
           placeholder="مثال: رياضة، مرض، وجبة ثقيلة..."
-          value={data[`d${dayNumber}_note`] || data[`note_${dayNumber}`] || ''}
+          value={data[`d${dayNumber}_note`] || ''}
           onChange={(e) => onUpdateValue(`d${dayNumber}_note`, e.target.value)}
           className="w-full text-xs sm:text-sm bg-slate-50 border border-slate-200 focus:border-sky-500 focus:bg-white rounded-xl px-3 py-2 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-100 transition-all"
           maxLength={150}

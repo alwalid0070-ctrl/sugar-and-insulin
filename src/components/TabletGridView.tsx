@@ -236,7 +236,7 @@ export const TabletGridView: React.FC<TabletGridViewProps> = ({
                         <input
                           type="text"
                           placeholder="ملاحظة (رياضة، مرض...)"
-                          value={data[`d${dayNum}_note`] || data[`note_${dayNum}`] || ''}
+                          value={data[`d${dayNum}_note`] || ''}
                           onChange={(e) => onUpdateValue(`d${dayNum}_note`, e.target.value)}
                           className="w-full text-[10px] bg-white border border-slate-300 focus:border-sky-500 rounded px-1.5 py-0.5 text-slate-700 placeholder:text-slate-400 focus:outline-none"
                           title="ملاحظة اليوم (اختياري)"
