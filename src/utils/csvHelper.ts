@@ -175,59 +175,256 @@ function nm(s: any): string {
     .trim();
 }
 
+import {
+  LONG_ACTING_DRUGS,
+  RAPID_DRUGS,
+  MIXED_DRUGS,
+} from '../types/glycemia';
+
 interface ColMatch {
   col: ColumnDef;
   insulinChoice?: 'rapid' | 'mix';
   periodKey?: 'ins_b2' | 'ins_l1' | 'ins_d1';
+  drugKey?: 'drug_b2' | 'drug_l1' | 'drug_d1' | 'drug_d3';
+  drugVal?: string;
+  drugOtherKey?: 'drugOther_b2' | 'drugOther_l1' | 'drugOther_d1' | 'drugOther_d3';
+  drugOtherVal?: string;
+}
+
+function matchDrugInList(name: string, list: readonly string[]): string | null {
+  const clean = name.trim().toLowerCase();
+  for (const item of list) {
+    if (item.toLowerCase() === clean) return item;
+  }
+  return null;
 }
 
 function findCol(meal: string, mes: string): ColMatch | null {
   const m = nm(meal);
-  const t = mes.trim().replace(/\s+/g, ' ');
+  const rawMes = mes.trim().replace(/\s+/g, ' ');
 
-  // Breakfast (petit déjeuner): b1, b2, b3
+  // 1. Check glucose columns
+  if (rawMes.includes('قبل الاكل') || rawMes.includes('قبل الأكل')) {
+    if (m === 'petit dejeuner' || m === 'petit déjeuner') {
+      return { col: COLS_DEF.find((c) => c.k === 'b1')! };
+    }
+  }
+  if (rawMes.includes('بعد الاكل') || rawMes.includes('بعد الأكل')) {
+    if (m === 'petit dejeuner' || m === 'petit déjeuner') {
+      return { col: COLS_DEF.find((c) => c.k === 'b3')! };
+    }
+    if (m === 'dejeuner' || m === 'déjeuner') {
+      return { col: COLS_DEF.find((c) => c.k === 'l2')! };
+    }
+    if (m === 'diner' || m === 'dîner') {
+      return { col: COLS_DEF.find((c) => c.k === 'd2')! };
+    }
+  }
+
+  // 2. Extract drug/insulin name after prefix
+  const extracted = rawMes
+    .replace(/^(كمية\s+(الانسلين|الإنسولين|الأنسولين|انسلين))\s*/i, '')
+    .trim();
+  const lowerExt = extracted.toLowerCase();
+
+  // Breakfast (petit déjeuner): b2
   if (m === 'petit dejeuner' || m === 'petit déjeuner') {
-    if (t.includes('rapid')) {
-      const col = COLS_DEF.find((c) => c.k === 'b2')!;
+    const col = COLS_DEF.find((c) => c.k === 'b2')!;
+    const matchedRapid = matchDrugInList(extracted, RAPID_DRUGS);
+    if (matchedRapid) {
+      return {
+        col,
+        insulinChoice: 'rapid',
+        periodKey: 'ins_b2',
+        drugKey: 'drug_b2',
+        drugVal: matchedRapid,
+      };
+    }
+    const matchedMix = matchDrugInList(extracted, MIXED_DRUGS);
+    if (matchedMix) {
+      return {
+        col,
+        insulinChoice: 'mix',
+        periodKey: 'ins_b2',
+        drugKey: 'drug_b2',
+        drugVal: matchedMix,
+      };
+    }
+    // Legacy formats
+    if (lowerExt === 'novo rapid' || (lowerExt.includes('rapid') && !extracted.includes(' '))) {
       return { col, insulinChoice: 'rapid', periodKey: 'ins_b2' };
     }
-    if (t.toLowerCase().includes('mix')) {
-      const col = COLS_DEF.find((c) => c.k === 'b2')!;
+    if (lowerExt === 'novo mix' || (lowerExt.includes('mix') && !extracted.includes(' '))) {
       return { col, insulinChoice: 'mix', periodKey: 'ins_b2' };
     }
+    if (lowerExt.includes('rapid')) {
+      return { col, insulinChoice: 'rapid', periodKey: 'ins_b2' };
+    }
+    if (lowerExt.includes('mix')) {
+      return { col, insulinChoice: 'mix', periodKey: 'ins_b2' };
+    }
+    // Unlisted custom drug
+    if (extracted && (rawMes.includes('كمية') || rawMes.includes('انسلين') || rawMes.includes('إنسولين'))) {
+      return {
+        col,
+        insulinChoice: lowerExt.includes('mix') ? 'mix' : 'rapid',
+        periodKey: 'ins_b2',
+        drugKey: 'drug_b2',
+        drugVal: 'other',
+        drugOtherKey: 'drugOther_b2',
+        drugOtherVal: extracted.slice(0, 30),
+      };
+    }
   }
 
-  // Lunch (déjeuner): l1, l2
+  // Lunch (déjeuner): l1
   if (m === 'dejeuner' || m === 'déjeuner') {
-    if (t.includes('rapid')) {
-      const col = COLS_DEF.find((c) => c.k === 'l1')!;
+    const col = COLS_DEF.find((c) => c.k === 'l1')!;
+    const matchedRapid = matchDrugInList(extracted, RAPID_DRUGS);
+    if (matchedRapid) {
+      return {
+        col,
+        insulinChoice: 'rapid',
+        periodKey: 'ins_l1',
+        drugKey: 'drug_l1',
+        drugVal: matchedRapid,
+      };
+    }
+    const matchedMix = matchDrugInList(extracted, MIXED_DRUGS);
+    if (matchedMix) {
+      return {
+        col,
+        insulinChoice: 'mix',
+        periodKey: 'ins_l1',
+        drugKey: 'drug_l1',
+        drugVal: matchedMix,
+      };
+    }
+    // Legacy formats
+    if (lowerExt === 'novo rapid' || (lowerExt.includes('rapid') && !extracted.includes(' '))) {
       return { col, insulinChoice: 'rapid', periodKey: 'ins_l1' };
     }
-    if (t.toLowerCase().includes('mix')) {
-      const col = COLS_DEF.find((c) => c.k === 'l1')!;
+    if (lowerExt === 'novo mix' || (lowerExt.includes('mix') && !extracted.includes(' '))) {
       return { col, insulinChoice: 'mix', periodKey: 'ins_l1' };
+    }
+    if (lowerExt.includes('rapid')) {
+      return { col, insulinChoice: 'rapid', periodKey: 'ins_l1' };
+    }
+    if (lowerExt.includes('mix')) {
+      return { col, insulinChoice: 'mix', periodKey: 'ins_l1' };
+    }
+    // Unlisted custom drug
+    if (extracted && (rawMes.includes('كمية') || rawMes.includes('انسلين') || rawMes.includes('إنسولين'))) {
+      return {
+        col,
+        insulinChoice: lowerExt.includes('mix') ? 'mix' : 'rapid',
+        periodKey: 'ins_l1',
+        drugKey: 'drug_l1',
+        drugVal: 'other',
+        drugOtherKey: 'drugOther_l1',
+        drugOtherVal: extracted.slice(0, 30),
+      };
     }
   }
 
-  // Dinner (diner): d1, d2, d3
+  // Dinner (diner): d1 (meal) or d3 (long-acting)
   if (m === 'diner' || m === 'dîner') {
-    if (t.includes('glarus') || t.includes('tresiba')) {
+    // Check long-acting drugs first
+    const matchedLong = matchDrugInList(extracted, LONG_ACTING_DRUGS);
+    if (matchedLong) {
+      const col = COLS_DEF.find((c) => c.k === 'd3')!;
+      return {
+        col,
+        drugKey: 'drug_d3',
+        drugVal: matchedLong,
+      };
+    }
+
+    // Check legacy GLARUS / TRESIBA
+    if (
+      lowerExt === 'glarus / tresiba' ||
+      lowerExt === 'glarus' ||
+      lowerExt === 'tresiba' ||
+      (lowerExt.includes('glarus') && lowerExt.includes('tresiba'))
+    ) {
       const col = COLS_DEF.find((c) => c.k === 'd3')!;
       return { col };
     }
-    if (t.toLowerCase().includes('mix')) {
-      const col = COLS_DEF.find((c) => c.k === 'd1')!;
-      return { col, insulinChoice: 'mix', periodKey: 'ins_d1' };
+
+    // Check long-acting keywords
+    if (
+      lowerExt.includes('lente') ||
+      lowerExt.includes('basal') ||
+      lowerExt.includes('بطيء') ||
+      lowerExt.includes('قاعدي') ||
+      lowerExt.includes('prolong')
+    ) {
+      const col = COLS_DEF.find((c) => c.k === 'd3')!;
+      return {
+        col,
+        drugKey: 'drug_d3',
+        drugVal: 'other',
+        drugOtherKey: 'drugOther_d3',
+        drugOtherVal: extracted.slice(0, 30),
+      };
     }
-    if (t.includes('rapid')) {
-      const col = COLS_DEF.find((c) => c.k === 'd1')!;
-      return { col, insulinChoice: 'rapid', periodKey: 'ins_d1' };
+
+    // Check rapid drugs in dinner (d1)
+    const colD1 = COLS_DEF.find((c) => c.k === 'd1')!;
+    const matchedRapid = matchDrugInList(extracted, RAPID_DRUGS);
+    if (matchedRapid) {
+      return {
+        col: colD1,
+        insulinChoice: 'rapid',
+        periodKey: 'ins_d1',
+        drugKey: 'drug_d1',
+        drugVal: matchedRapid,
+      };
+    }
+
+    // Check mixed drugs in dinner (d1)
+    const matchedMix = matchDrugInList(extracted, MIXED_DRUGS);
+    if (matchedMix) {
+      return {
+        col: colD1,
+        insulinChoice: 'mix',
+        periodKey: 'ins_d1',
+        drugKey: 'drug_d1',
+        drugVal: matchedMix,
+      };
+    }
+
+    // Legacy formats for dinner
+    if (lowerExt === 'novo mix' || (lowerExt.includes('mix') && !extracted.includes(' '))) {
+      return { col: colD1, insulinChoice: 'mix', periodKey: 'ins_d1' };
+    }
+    if (lowerExt === 'novo rapid' || (lowerExt.includes('rapid') && !extracted.includes(' '))) {
+      return { col: colD1, insulinChoice: 'rapid', periodKey: 'ins_d1' };
+    }
+    if (lowerExt.includes('mix')) {
+      return { col: colD1, insulinChoice: 'mix', periodKey: 'ins_d1' };
+    }
+    if (lowerExt.includes('rapid')) {
+      return { col: colD1, insulinChoice: 'rapid', periodKey: 'ins_d1' };
+    }
+
+    // Unlisted custom drug in dinner
+    if (extracted && (rawMes.includes('كمية') || rawMes.includes('انسلين') || rawMes.includes('إنسولين'))) {
+      return {
+        col: colD1,
+        insulinChoice: lowerExt.includes('mix') ? 'mix' : 'rapid',
+        periodKey: 'ins_d1',
+        drugKey: 'drug_d1',
+        drugVal: 'other',
+        drugOtherKey: 'drugOther_d1',
+        drugOtherVal: extracted.slice(0, 30),
+      };
     }
   }
 
   for (let k = 0; k < COLS_DEF.length; k++) {
     const c = COLS_DEF[k];
-    if (c && nm(c.m) === m && c.t === t) return { col: c };
+    if (c && nm(c.m) === m && c.t === rawMes) return { col: c };
   }
 
   return null;
@@ -300,6 +497,20 @@ export function parseCsvImport(text: string, currentDays: string[]): ImportPrevi
     ins_d1?: 'rapid' | 'mix';
   } = {};
 
+  const detectedDrugs: {
+    drug_b2?: string;
+    drug_l1?: string;
+    drug_d1?: string;
+    drug_d3?: string;
+  } = {};
+
+  const detectedDrugOthers: {
+    drugOther_b2?: string;
+    drugOther_l1?: string;
+    drugOther_d1?: string;
+    drugOther_d3?: string;
+  } = {};
+
   rows.slice(1).forEach((r, k) => {
     const L = `سطر ${k + 2}: `;
     const rawDay = g(r, 'Jour').replace(/\s+/g, ' ');
@@ -367,6 +578,16 @@ export function parseCsvImport(text: string, currentDays: string[]): ImportPrevi
     if (match.periodKey && match.insulinChoice) {
       if (!detectedInsulins[match.periodKey]) {
         detectedInsulins[match.periodKey] = match.insulinChoice;
+      }
+    }
+    if (match.drugKey && match.drugVal) {
+      if (!detectedDrugs[match.drugKey]) {
+        detectedDrugs[match.drugKey] = match.drugVal;
+      }
+    }
+    if (match.drugOtherKey && match.drugOtherVal) {
+      if (!detectedDrugOthers[match.drugOtherKey]) {
+        detectedDrugOthers[match.drugOtherKey] = match.drugOtherVal;
       }
     }
 
@@ -460,6 +681,48 @@ export function parseCsvImport(text: string, currentDays: string[]): ImportPrevi
         meal: '—',
         mes: insLabels[key],
         v: detectedInsulins[key]!,
+        di: -1,
+        isGlucose: false,
+      });
+    }
+  });
+
+  const drugLabels: Record<'drug_b2' | 'drug_l1' | 'drug_d1' | 'drug_d3', string> = {
+    drug_b2: 'دواء إنسولين الصباح',
+    drug_l1: 'دواء إنسولين الغداء',
+    drug_d1: 'دواء إنسولين العشاء',
+    drug_d3: 'دواء الإنسولين طويل المفعول',
+  };
+
+  (['drug_b2', 'drug_l1', 'drug_d1', 'drug_d3'] as const).forEach((key) => {
+    if (detectedDrugs[key]) {
+      topEnts.push({
+        id: key,
+        day: '—',
+        meal: '—',
+        mes: drugLabels[key],
+        v: detectedDrugs[key]!,
+        di: -1,
+        isGlucose: false,
+      });
+    }
+  });
+
+  const drugOtherLabels: Record<'drugOther_b2' | 'drugOther_l1' | 'drugOther_d1' | 'drugOther_d3', string> = {
+    drugOther_b2: 'اسم دواء الصباح المخصص',
+    drugOther_l1: 'اسم دواء الغداء المخصص',
+    drugOther_d1: 'اسم دواء العشاء المخصص',
+    drugOther_d3: 'اسم إنسولين طويل المفعول المخصص',
+  };
+
+  (['drugOther_b2', 'drugOther_l1', 'drugOther_d1', 'drugOther_d3'] as const).forEach((key) => {
+    if (detectedDrugOthers[key]) {
+      topEnts.push({
+        id: key,
+        day: '—',
+        meal: '—',
+        mes: drugOtherLabels[key],
+        v: detectedDrugOthers[key]!,
         di: -1,
         isGlucose: false,
       });

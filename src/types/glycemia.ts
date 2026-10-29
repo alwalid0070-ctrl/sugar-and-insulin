@@ -84,6 +84,32 @@ export const COLS_DEF: ColumnDef[] = [
   },
 ];
 
+export const LONG_ACTING_DRUGS = [
+  'Tresiba',
+  'Toujeo',
+  'Lantus',
+  'Glarus',
+  'Glargine Frater',
+] as const;
+
+export const RAPID_DRUGS = [
+  'Bio Rapid',
+  'NovoRapid',
+  'Humalog',
+  'Apidra',
+] as const;
+
+export const MIXED_DRUGS = [
+  'Bio Mix',
+  'NovoMix 30',
+  'Humalog Mix',
+  'Mixtard 30',
+] as const;
+
+export type LongActingDrug = (typeof LONG_ACTING_DRUGS)[number];
+export type RapidDrug = (typeof RAPID_DRUGS)[number];
+export type MixedDrug = (typeof MIXED_DRUGS)[number];
+
 export interface GlycemiaData {
   nom?: string;
   prenom?: string;
@@ -98,6 +124,14 @@ export interface GlycemiaData {
   ins_b2?: 'rapid' | 'mix';
   ins_l1?: 'rapid' | 'mix';
   ins_d1?: 'rapid' | 'mix';
+  drug_b2?: string;
+  drug_l1?: string;
+  drug_d1?: string;
+  drug_d3?: string;
+  drugOther_b2?: string;
+  drugOther_l1?: string;
+  drugOther_d1?: string;
+  drugOther_d3?: string;
   [key: string]: any;
 }
 
@@ -112,9 +146,39 @@ export function insulinName(choice: 'rapid' | 'mix'): 'NOVO rapid' | 'NOVO Mix' 
   return choice === 'mix' ? 'NOVO Mix' : 'NOVO rapid';
 }
 
+export function getDrugName(
+  data: GlycemiaData,
+  k: 'b2' | 'l1' | 'd1' | 'd3'
+): string | null {
+  const drug = data[`drug_${k}`];
+  if (!drug || typeof drug !== 'string') return null;
+  const trimmed = drug.trim();
+  if (!trimmed) return null;
+  if (trimmed === 'other') {
+    const otherVal = data[`drugOther_${k}`];
+    if (typeof otherVal === 'string' && otherVal.trim()) {
+      return otherVal.trim();
+    }
+    return null;
+  }
+  return trimmed;
+}
+
+export function getInsulinDisplayName(
+  data: GlycemiaData,
+  k: 'b2' | 'l1' | 'd1' | 'd3'
+): string {
+  const customDrug = getDrugName(data, k);
+  if (customDrug) return customDrug;
+  if (k === 'd3') {
+    return 'GLARUS / TRESIBA';
+  }
+  return insulinName(getInsulinChoice(data, k));
+}
+
 export function getColLabel(col: ColumnDef, data: GlycemiaData): string {
-  if (col.k === 'b2' || col.k === 'l1' || col.k === 'd1') {
-    return 'كمية الانسلين ' + insulinName(getInsulinChoice(data, col.k));
+  if (col.k === 'b2' || col.k === 'l1' || col.k === 'd1' || col.k === 'd3') {
+    return 'كمية الانسلين ' + getInsulinDisplayName(data, col.k);
   }
   return col.t;
 }

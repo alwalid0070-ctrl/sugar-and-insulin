@@ -1,6 +1,6 @@
 import React from 'react';
 import { Printer, Download, ArrowRight, FileCheck } from 'lucide-react';
-import { GlycemiaData, COLS_DEF, getInsulinChoice } from '../types/glycemia';
+import { GlycemiaData, COLS_DEF, getInsulinChoice, getDrugName } from '../types/glycemia';
 import { downloadDocx } from '../utils/docxExport';
 
 interface PrintSheetViewProps {
@@ -25,6 +25,11 @@ export const PrintSheetView: React.FC<PrintSheetViewProps> = ({
   const insB2 = getInsulinChoice(data, 'b2');
   const insL1 = getInsulinChoice(data, 'l1');
   const insD1 = getInsulinChoice(data, 'd1');
+
+  const drugB2 = getDrugName(data, 'b2');
+  const drugL1 = getDrugName(data, 'l1');
+  const drugD1 = getDrugName(data, 'd1');
+  const drugD3 = getDrugName(data, 'd3');
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-4 space-y-4">
@@ -170,12 +175,18 @@ export const PrintSheetView: React.FC<PrintSheetViewProps> = ({
                 </th>
                 <th className="border-r border-slate-900 p-1.5 h-32 align-top">
                   <span dir="rtl" className="block font-medium">كمية الانسلين</span>
-                  <div className="text-left font-bold text-xs mt-3 pl-1 leading-snug">
-                    NOVO<br />
-                    <span className={insB2 === 'rapid' ? 'italic font-normal' : 'font-normal'}>
-                      {insB2 === 'rapid' ? 'rapid' : 'Mix'}
-                    </span>
-                  </div>
+                  {drugB2 ? (
+                    <div className="text-left font-bold text-xs mt-3 pl-1 leading-tight break-words max-w-full">
+                      {drugB2}
+                    </div>
+                  ) : (
+                    <div className="text-left font-bold text-xs mt-3 pl-1 leading-snug">
+                      NOVO<br />
+                      <span className={insB2 === 'rapid' ? 'italic font-normal' : 'font-normal'}>
+                        {insB2 === 'rapid' ? 'rapid' : 'Mix'}
+                      </span>
+                    </div>
+                  )}
                 </th>
                 <th className="border-r border-slate-900 p-1.5 h-32 align-top">
                   <span dir="rtl" className="block font-medium">نسبة السكر بعد الاكل ب 2 ساعة</span>
@@ -183,12 +194,18 @@ export const PrintSheetView: React.FC<PrintSheetViewProps> = ({
 
                 <th className="border-r border-slate-900 p-1.5 h-32 align-top">
                   <span dir="rtl" className="block font-medium">كمية الانسلين</span>
-                  <div className="text-left font-bold text-xs mt-3 pl-1 leading-snug">
-                    NOVO<br />
-                    <span className={insL1 === 'rapid' ? 'font-normal' : 'font-normal'}>
-                      {insL1 === 'rapid' ? 'rapid' : 'Mix'}
-                    </span>
-                  </div>
+                  {drugL1 ? (
+                    <div className="text-left font-bold text-xs mt-3 pl-1 leading-tight break-words max-w-full">
+                      {drugL1}
+                    </div>
+                  ) : (
+                    <div className="text-left font-bold text-xs mt-3 pl-1 leading-snug">
+                      NOVO<br />
+                      <span className="font-normal">
+                        {insL1 === 'rapid' ? 'rapid' : 'Mix'}
+                      </span>
+                    </div>
+                  )}
                 </th>
                 <th className="border-r border-slate-900 p-1.5 h-32 align-top">
                   <span dir="rtl" className="block font-medium">نسبة السكر بعد الاكل ب 2 ساعة</span>
@@ -196,22 +213,34 @@ export const PrintSheetView: React.FC<PrintSheetViewProps> = ({
 
                 <th className="border-r border-slate-900 p-1.5 h-32 align-top">
                   <span dir="rtl" className="block font-medium">كمية الانسلين</span>
-                  <div className="text-left font-bold text-xs mt-3 pl-1 leading-snug">
-                    NOVO<br />
-                    <span className={insD1 === 'rapid' ? 'italic font-normal' : 'font-normal'}>
-                      {insD1 === 'rapid' ? 'rapid' : 'Mix'}
-                    </span>
-                  </div>
+                  {drugD1 ? (
+                    <div className="text-left font-bold text-xs mt-3 pl-1 leading-tight break-words max-w-full">
+                      {drugD1}
+                    </div>
+                  ) : (
+                    <div className="text-left font-bold text-xs mt-3 pl-1 leading-snug">
+                      NOVO<br />
+                      <span className={insD1 === 'rapid' ? 'italic font-normal' : 'font-normal'}>
+                        {insD1 === 'rapid' ? 'rapid' : 'Mix'}
+                      </span>
+                    </div>
+                  )}
                 </th>
                 <th className="border-r border-slate-900 p-1.5 h-32 align-top">
                   <span dir="rtl" className="block font-medium">نسبة السكر بعد الاكل ب 2 ساعة</span>
                 </th>
                 <th className="border-r border-slate-900 p-1.5 h-32 align-top">
                   <span dir="rtl" className="block font-medium">كمية الانسلين</span>
-                  <div className="text-left font-bold text-xs mt-3 pl-1 leading-snug">
-                    GLARUS<br />
-                    <span className="font-normal">TRESIBA</span>
-                  </div>
+                  {drugD3 ? (
+                    <div className="text-left font-bold text-xs mt-3 pl-1 leading-tight break-words max-w-full">
+                      {drugD3}
+                    </div>
+                  ) : (
+                    <div className="text-left font-bold text-xs mt-3 pl-1 leading-snug">
+                      GLARUS<br />
+                      <span className="font-normal">TRESIBA</span>
+                    </div>
+                  )}
                 </th>
               </tr>
             </thead>

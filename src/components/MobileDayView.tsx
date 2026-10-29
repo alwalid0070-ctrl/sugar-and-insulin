@@ -24,6 +24,7 @@ import {
   SEVERE_HYPO_ALERT,
   getInsulinChoice,
   insulinName,
+  getInsulinDisplayName,
 } from '../types/glycemia';
 import { normalizeArabicNums } from '../utils/csvHelper';
 
@@ -185,9 +186,10 @@ export const MobileDayView: React.FC<MobileDayViewProps> = ({
   const b2Choice = getInsulinChoice(data, 'b2');
   const l1Choice = getInsulinChoice(data, 'l1');
   const d1Choice = getInsulinChoice(data, 'd1');
-  const b2Name = insulinName(b2Choice);
-  const l1Name = insulinName(l1Choice);
-  const d1Name = insulinName(d1Choice);
+  const b2Name = getInsulinDisplayName(data, 'b2');
+  const l1Name = getInsulinDisplayName(data, 'l1');
+  const d1Name = getInsulinDisplayName(data, 'd1');
+  const d3Name = getInsulinDisplayName(data, 'd3');
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-4 space-y-4">
@@ -769,7 +771,7 @@ export const MobileDayView: React.FC<MobileDayViewProps> = ({
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                 <Syringe className="w-3.5 h-3.5 text-blue-600" />
-                <span>كمية الإنسولين GLARUS / TRESIBA</span>
+                <span>كمية الإنسولين {d3Name}</span>
               </label>
               <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded">
                 إنسولين قاعدي بطيء

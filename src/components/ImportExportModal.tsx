@@ -409,6 +409,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                   <tbody>
                     {importResult.ent.slice(0, 50).map((e, idx) => {
                       const isInsulinChoice = e.id.startsWith('ins_');
+                      const isDrugChoice = e.id.startsWith('drug_');
                       const cur = isInsulinChoice
                         ? (data[e.id] || (e.id === 'ins_d1' ? 'mix' : 'rapid'))
                         : data[e.id] || '';
@@ -416,10 +417,10 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                       const isNew = cur === '';
                       const displayFileVal = isInsulinChoice
                         ? (e.v === 'rapid' ? 'NOVO rapid' : 'NOVO Mix')
-                        : e.v;
+                        : (isDrugChoice && e.v === 'other' ? 'دواء آخر (غير مدرج)' : e.v);
                       const displayCurVal = isInsulinChoice
                         ? (cur === 'rapid' ? 'NOVO rapid' : 'NOVO Mix')
-                        : cur || '—';
+                        : (isDrugChoice && cur === 'other' ? 'دواء آخر (غير مدرج)' : cur || '—');
                       return (
                         <tr
                           key={idx}

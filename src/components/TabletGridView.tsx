@@ -8,6 +8,7 @@ import {
   SEVERE_HYPO_ALERT,
   getInsulinChoice,
   insulinName,
+  getInsulinDisplayName,
 } from '../types/glycemia';
 import { normalizeArabicNums } from '../utils/csvHelper';
 
@@ -32,9 +33,10 @@ export const TabletGridView: React.FC<TabletGridViewProps> = ({
   const b2Choice = getInsulinChoice(data, 'b2');
   const l1Choice = getInsulinChoice(data, 'l1');
   const d1Choice = getInsulinChoice(data, 'd1');
-  const b2Name = insulinName(b2Choice);
-  const l1Name = insulinName(l1Choice);
-  const d1Name = insulinName(d1Choice);
+  const b2Name = getInsulinDisplayName(data, 'b2');
+  const l1Name = getInsulinDisplayName(data, 'l1');
+  const d1Name = getInsulinDisplayName(data, 'd1');
+  const d3Name = getInsulinDisplayName(data, 'd3');
 
   // Check if any blood sugar reading in the table is severe hypoglycemia
   const hasSevereHypo = days.some((_, idx) => {
@@ -224,7 +226,7 @@ export const TabletGridView: React.FC<TabletGridViewProps> = ({
                 {/* d3 */}
                 <th className="border-r border-slate-400 p-2 font-medium bg-blue-50/40">
                   <div>كمية الإنسولين</div>
-                  <div className="font-bold text-blue-900">GLARUS / TRESIBA</div>
+                  <div className="font-bold text-blue-900">{d3Name}</div>
                 </th>
               </tr>
             </thead>

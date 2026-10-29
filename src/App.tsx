@@ -368,6 +368,14 @@ export default function App() {
       ins_b2: 'rapid',
       ins_l1: 'rapid',
       ins_d1: 'mix',
+      drug_b2: '',
+      drug_l1: '',
+      drug_d1: '',
+      drug_d3: '',
+      drugOther_b2: '',
+      drugOther_l1: '',
+      drugOther_d1: '',
+      drugOther_d3: '',
     });
     setDays(DEFAULT_DAYS);
     setActiveDayIndex(0);
