@@ -20,6 +20,7 @@ import { PrintSheetView } from './components/PrintSheetView';
 import { ImportExportModal } from './components/ImportExportModal';
 import { PatientModal } from './components/PatientModal';
 import { UnitChangeModal } from './components/UnitChangeModal';
+import { InsulinPrescription } from './components/InsulinPrescription';
 
 const DEFAULT_DAYS = ['jour 1', 'Jour 2', 'Jour 3', 'Jour 4'];
 
@@ -331,6 +332,9 @@ export default function App() {
         targetMaxPost: normalizedImported.targetMaxPost ?? data.targetMaxPost,
         diabetesType: normalizedImported.diabetesType ?? data.diabetesType,
         doctor: normalizedImported.doctor ?? data.doctor,
+        ins_b2: normalizedImported.ins_b2 ?? data.ins_b2,
+        ins_l1: normalizedImported.ins_l1 ?? data.ins_l1,
+        ins_d1: normalizedImported.ins_d1 ?? data.ins_d1,
         ...normalizedImported,
         daysCount: maxDay,
       };
@@ -361,6 +365,9 @@ export default function App() {
       age: '',
       unit: 'g/L',
       daysCount: 4,
+      ins_b2: 'rapid',
+      ins_l1: 'rapid',
+      ins_d1: 'mix',
     });
     setDays(DEFAULT_DAYS);
     setActiveDayIndex(0);
@@ -405,6 +412,13 @@ export default function App() {
             onOpenPatientModal={() => setIsPatientModalOpen(true)}
             onRequestUnitChange={handleRequestUnitChange}
           />
+
+          {(currentTab === 'mobile' || currentTab === 'tablet') && (
+            <InsulinPrescription
+              data={data}
+              onChangeData={handleChangeData}
+            />
+          )}
 
           {unitAlertMessage && (
             <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 sm:px-6 no-print animate-in fade-in duration-150">

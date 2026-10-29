@@ -22,6 +22,8 @@ import {
   getTargets,
   isSevereHypo,
   SEVERE_HYPO_ALERT,
+  getInsulinChoice,
+  insulinName,
 } from '../types/glycemia';
 import { normalizeArabicNums } from '../utils/csvHelper';
 
@@ -179,6 +181,13 @@ export const MobileDayView: React.FC<MobileDayViewProps> = ({
     glucoseValues.length > 0
       ? (glucoseValues.reduce((a, b) => a + b, 0) / glucoseValues.length).toFixed(2)
       : null;
+
+  const b2Choice = getInsulinChoice(data, 'b2');
+  const l1Choice = getInsulinChoice(data, 'l1');
+  const d1Choice = getInsulinChoice(data, 'd1');
+  const b2Name = insulinName(b2Choice);
+  const l1Name = insulinName(l1Choice);
+  const d1Name = insulinName(d1Choice);
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-4 space-y-4">
@@ -421,15 +430,15 @@ export const MobileDayView: React.FC<MobileDayViewProps> = ({
             {renderFeedback(evaluateGlucose(data[`d${dayNumber}_b1`], true))}
           </div>
 
-          {/* b2: كمية الإنسولين NOVO rapid */}
+          {/* b2: كمية الإنسولين */}
           <div className="space-y-1.5 pt-2 border-t border-slate-100">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <Syringe className="w-3.5 h-3.5 text-amber-600" />
-                <span>كمية الإنسولين NOVO rapid</span>
+                <Syringe className={`w-3.5 h-3.5 ${b2Choice === 'rapid' ? 'text-amber-600' : 'text-purple-600'}`} />
+                <span>كمية الإنسولين {b2Name}</span>
               </label>
-              <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded">
-                إنسولين سريع
+              <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${b2Choice === 'rapid' ? 'text-amber-700 bg-amber-50' : 'text-purple-700 bg-purple-50'}`}>
+                {b2Choice === 'rapid' ? 'إنسولين سريع' : 'إنسولين مختلط'}
               </span>
             </div>
 
@@ -539,15 +548,15 @@ export const MobileDayView: React.FC<MobileDayViewProps> = ({
         </div>
 
         <div className="p-4 space-y-4">
-          {/* l1: كمية الإنسولين NOVO rapid */}
+          {/* l1: كمية الإنسولين */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <Syringe className="w-3.5 h-3.5 text-amber-600" />
-                <span>كمية الإنسولين NOVO rapid</span>
+                <Syringe className={`w-3.5 h-3.5 ${l1Choice === 'rapid' ? 'text-amber-600' : 'text-purple-600'}`} />
+                <span>كمية الإنسولين {l1Name}</span>
               </label>
-              <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded">
-                إنسولين سريع
+              <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${l1Choice === 'rapid' ? 'text-amber-700 bg-amber-50' : 'text-purple-700 bg-purple-50'}`}>
+                {l1Choice === 'rapid' ? 'إنسولين سريع' : 'إنسولين مختلط'}
               </span>
             </div>
 
@@ -657,15 +666,15 @@ export const MobileDayView: React.FC<MobileDayViewProps> = ({
         </div>
 
         <div className="p-4 space-y-4">
-          {/* d1: كمية الإنسولين NOVO Mix */}
+          {/* d1: كمية الإنسولين */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <Syringe className="w-3.5 h-3.5 text-purple-600" />
-                <span>كمية الإنسولين NOVO Mix</span>
+                <Syringe className={`w-3.5 h-3.5 ${d1Choice === 'rapid' ? 'text-amber-600' : 'text-purple-600'}`} />
+                <span>كمية الإنسولين {d1Name}</span>
               </label>
-              <span className="text-[11px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded">
-                إنسولين مختلط
+              <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${d1Choice === 'rapid' ? 'text-amber-700 bg-amber-50' : 'text-purple-700 bg-purple-50'}`}>
+                {d1Choice === 'rapid' ? 'إنسولين سريع' : 'إنسولين مختلط'}
               </span>
             </div>
 

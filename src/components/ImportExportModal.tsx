@@ -407,10 +407,19 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                     </tr>
                   </thead>
                   <tbody>
-                    {importResult.ent.slice(0, 15).map((e, idx) => {
-                      const cur = data[e.id] || '';
+                    {importResult.ent.slice(0, 50).map((e, idx) => {
+                      const isInsulinChoice = e.id.startsWith('ins_');
+                      const cur = isInsulinChoice
+                        ? (data[e.id] || (e.id === 'ins_d1' ? 'mix' : 'rapid'))
+                        : data[e.id] || '';
                       const isSame = cur === e.v;
                       const isNew = cur === '';
+                      const displayFileVal = isInsulinChoice
+                        ? (e.v === 'rapid' ? 'NOVO rapid' : 'NOVO Mix')
+                        : e.v;
+                      const displayCurVal = isInsulinChoice
+                        ? (cur === 'rapid' ? 'NOVO rapid' : 'NOVO Mix')
+                        : cur || '—';
                       return (
                         <tr
                           key={idx}
@@ -425,8 +434,8 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                           <td className="p-1.5 font-medium">{e.day}</td>
                           <td className="p-1.5 text-slate-500">{e.meal}</td>
                           <td className="p-1.5 text-slate-700">{e.mes}</td>
-                          <td className="p-1.5 font-bold text-sky-700">{e.v}</td>
-                          <td className="p-1.5 text-slate-500">{cur || '—'}</td>
+                          <td className="p-1.5 font-bold text-sky-700">{displayFileVal}</td>
+                          <td className="p-1.5 text-slate-500">{displayCurVal}</td>
                         </tr>
                       );
                     })}

@@ -3,7 +3,14 @@
  * 100% interoperable with original glycemia-sheet format
  */
 
-import { GlycemiaData, COLS_DEF, ImportEntry, ImportPreviewResult } from '../types/glycemia';
+import {
+  GlycemiaData,
+  COLS_DEF,
+  ColumnDef,
+  ImportEntry,
+  ImportPreviewResult,
+  getColLabel,
+} from '../types/glycemia';
 
 export const STORAGE_KEY = 'glycemia_sheet_v1';
 
@@ -63,7 +70,7 @@ export function exportCsv(data: GlycemiaData, days: string[]): void {
           d,
           data[`date_${i + 1}`] || '',
           c.m,
-          c.t,
+          getColLabel(c, data),
           v,
           currentUnit,
           dayNote,
@@ -168,16 +175,61 @@ function nm(s: any): string {
     .trim();
 }
 
-function findCol(meal: string, mes: string) {
+interface ColMatch {
+  col: ColumnDef;
+  insulinChoice?: 'rapid' | 'mix';
+  periodKey?: 'ins_b2' | 'ins_l1' | 'ins_d1';
+}
+
+function findCol(meal: string, mes: string): ColMatch | null {
   const m = nm(meal);
   const t = mes.trim().replace(/\s+/g, ' ');
+
+  // Breakfast (petit déjeuner): b1, b2, b3
+  if (m === 'petit dejeuner' || m === 'petit déjeuner') {
+    if (t.includes('rapid')) {
+      const col = COLS_DEF.find((c) => c.k === 'b2')!;
+      return { col, insulinChoice: 'rapid', periodKey: 'ins_b2' };
+    }
+    if (t.toLowerCase().includes('mix')) {
+      const col = COLS_DEF.find((c) => c.k === 'b2')!;
+      return { col, insulinChoice: 'mix', periodKey: 'ins_b2' };
+    }
+  }
+
+  // Lunch (déjeuner): l1, l2
+  if (m === 'dejeuner' || m === 'déjeuner') {
+    if (t.includes('rapid')) {
+      const col = COLS_DEF.find((c) => c.k === 'l1')!;
+      return { col, insulinChoice: 'rapid', periodKey: 'ins_l1' };
+    }
+    if (t.toLowerCase().includes('mix')) {
+      const col = COLS_DEF.find((c) => c.k === 'l1')!;
+      return { col, insulinChoice: 'mix', periodKey: 'ins_l1' };
+    }
+  }
+
+  // Dinner (diner): d1, d2, d3
+  if (m === 'diner' || m === 'dîner') {
+    if (t.includes('glarus') || t.includes('tresiba')) {
+      const col = COLS_DEF.find((c) => c.k === 'd3')!;
+      return { col };
+    }
+    if (t.toLowerCase().includes('mix')) {
+      const col = COLS_DEF.find((c) => c.k === 'd1')!;
+      return { col, insulinChoice: 'mix', periodKey: 'ins_d1' };
+    }
+    if (t.includes('rapid')) {
+      const col = COLS_DEF.find((c) => c.k === 'd1')!;
+      return { col, insulinChoice: 'rapid', periodKey: 'ins_d1' };
+    }
+  }
+
   for (let k = 0; k < COLS_DEF.length; k++) {
     const c = COLS_DEF[k];
-    if (c && nm(c.m) === m && c.t === t) return c;
+    if (c && nm(c.m) === m && c.t === t) return { col: c };
   }
-  if (m === 'diner' && t === 'كمية الانسلين NOVO rapid') {
-    return COLS_DEF.find((c) => c.k === 'd1') || null;
-  }
+
   return null;
 }
 
@@ -242,6 +294,12 @@ export function parseCsvImport(text: string, currentDays: string[]): ImportPrevi
 
   const daysLower = currentDays.map((d) => d.toLowerCase());
 
+  const detectedInsulins: {
+    ins_b2?: 'rapid' | 'mix';
+    ins_l1?: 'rapid' | 'mix';
+    ins_d1?: 'rapid' | 'mix';
+  } = {};
+
   rows.slice(1).forEach((r, k) => {
     const L = `سطر ${k + 2}: `;
     const rawDay = g(r, 'Jour').replace(/\s+/g, ' ');
@@ -300,11 +358,18 @@ export function parseCsvImport(text: string, currentDays: string[]): ImportPrevi
     const v = g(r, 'Valeur');
     if (!meal && !mes && !v) return;
 
-    const c = findCol(meal, mes);
-    if (!c) {
+    const match = findCol(meal, mes);
+    if (!match) {
       res.warn.push(L + `خانة غير معروفة («${meal}» / «${mes}»).`);
       return;
     }
+    const c = match.col;
+    if (match.periodKey && match.insulinChoice) {
+      if (!detectedInsulins[match.periodKey]) {
+        detectedInsulins[match.periodKey] = match.insulinChoice;
+      }
+    }
+
     if (!v) return;
 
     const cleanV = normalizeArabicNums(v);
@@ -380,6 +445,26 @@ export function parseCsvImport(text: string, currentDays: string[]): ImportPrevi
         isGlucose: false,
       });
     });
+
+  const insLabels: Record<'ins_b2' | 'ins_l1' | 'ins_d1', string> = {
+    ins_b2: 'نوع الإنسولين (الصباح)',
+    ins_l1: 'نوع الإنسولين (الغداء)',
+    ins_d1: 'نوع الإنسولين (العشاء)',
+  };
+
+  (['ins_b2', 'ins_l1', 'ins_d1'] as const).forEach((key) => {
+    if (detectedInsulins[key]) {
+      topEnts.push({
+        id: key,
+        day: '—',
+        meal: '—',
+        mes: insLabels[key],
+        v: detectedInsulins[key]!,
+        di: -1,
+        isGlucose: false,
+      });
+    }
+  });
 
   res.ent = topEnts.concat(res.ent);
   if (!res.ent.length) {

@@ -6,6 +6,8 @@ import {
   getTargets,
   isSevereHypo,
   SEVERE_HYPO_ALERT,
+  getInsulinChoice,
+  insulinName,
 } from '../types/glycemia';
 import { normalizeArabicNums } from '../utils/csvHelper';
 
@@ -26,6 +28,13 @@ export const TabletGridView: React.FC<TabletGridViewProps> = ({
 }) => {
   const currentUnit = data.unit || 'g/L';
   const targets = getTargets(data);
+
+  const b2Choice = getInsulinChoice(data, 'b2');
+  const l1Choice = getInsulinChoice(data, 'l1');
+  const d1Choice = getInsulinChoice(data, 'd1');
+  const b2Name = insulinName(b2Choice);
+  const l1Name = insulinName(l1Choice);
+  const d1Name = insulinName(d1Choice);
 
   // Check if any blood sugar reading in the table is severe hypoglycemia
   const hasSevereHypo = days.some((_, idx) => {
@@ -172,9 +181,12 @@ export const TabletGridView: React.FC<TabletGridViewProps> = ({
                   <div className="font-bold text-slate-900">قبل الأكل</div>
                 </th>
                 {/* b2 */}
-                <th className="border-r border-slate-300 p-2 font-medium bg-amber-50/40">
+                <th className={`border-r border-slate-300 p-2 font-medium ${b2Choice === 'rapid' ? 'bg-amber-50/40' : 'bg-purple-50/40'}`}>
                   <div>كمية الإنسولين</div>
-                  <div className="font-bold text-amber-900">NOVO rapid</div>
+                  <div className={`font-bold ${b2Choice === 'rapid' ? 'text-amber-900' : 'text-purple-900'}`}>{b2Name}</div>
+                  <div className="text-[10px] text-slate-500 font-normal">
+                    {b2Choice === 'rapid' ? 'إنسولين سريع' : 'إنسولين مختلط'}
+                  </div>
                 </th>
                 {/* b3 */}
                 <th className="border-r border-slate-400 p-2 font-medium">
@@ -183,9 +195,12 @@ export const TabletGridView: React.FC<TabletGridViewProps> = ({
                 </th>
 
                 {/* l1 */}
-                <th className="border-r border-slate-300 p-2 font-medium bg-sky-50/40">
+                <th className={`border-r border-slate-300 p-2 font-medium ${l1Choice === 'rapid' ? 'bg-sky-50/40' : 'bg-purple-50/40'}`}>
                   <div>كمية الإنسولين</div>
-                  <div className="font-bold text-sky-900">NOVO rapid</div>
+                  <div className={`font-bold ${l1Choice === 'rapid' ? 'text-sky-900' : 'text-purple-900'}`}>{l1Name}</div>
+                  <div className="text-[10px] text-slate-500 font-normal">
+                    {l1Choice === 'rapid' ? 'إنسولين سريع' : 'إنسولين مختلط'}
+                  </div>
                 </th>
                 {/* l2 */}
                 <th className="border-r border-slate-400 p-2 font-medium">
@@ -194,9 +209,12 @@ export const TabletGridView: React.FC<TabletGridViewProps> = ({
                 </th>
 
                 {/* d1 */}
-                <th className="border-r border-slate-300 p-2 font-medium bg-purple-50/40">
+                <th className={`border-r border-slate-300 p-2 font-medium ${d1Choice === 'rapid' ? 'bg-amber-50/40' : 'bg-purple-50/40'}`}>
                   <div>كمية الإنسولين</div>
-                  <div className="font-bold text-purple-900">NOVO Mix</div>
+                  <div className={`font-bold ${d1Choice === 'rapid' ? 'text-amber-900' : 'text-purple-900'}`}>{d1Name}</div>
+                  <div className="text-[10px] text-slate-500 font-normal">
+                    {d1Choice === 'rapid' ? 'إنسولين سريع' : 'إنسولين مختلط'}
+                  </div>
                 </th>
                 {/* d2 */}
                 <th className="border-r border-slate-300 p-2 font-medium">

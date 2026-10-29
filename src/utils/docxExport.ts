@@ -3,7 +3,7 @@
  * Faithful recreation and enhancement of the original glycemia-sheet Word generator.
  */
 
-import { GlycemiaData, COLS_DEF } from '../types/glycemia';
+import { GlycemiaData, COLS_DEF, getColLabel } from '../types/glycemia';
 
 function ar(s: string): boolean {
   return /[\u0600-\u06FF]/.test(s);
@@ -21,8 +21,8 @@ function fmtD(v: string): string {
   return m ? `${m[3]}/${m[2]}/${m[1]}` : v || '';
 }
 
-function para(s: string, sz: number = 16, jc: string = 'center'): string {
-  if (!s) return '<w:p><w:pPr><w:jc w:val="center"/></w:pPr></w:p>';
+function para(s: string, sz: number = 16, jc: string = 'center', bold: boolean = false): string {
+  if (!s) return '<w:p><w:pPr><w:jc w:val="' + (jc || 'center') + '"/></w:pPr></w:p>';
   const a = ar(s);
   return (
     '<w:p><w:pPr>' +
@@ -33,6 +33,7 @@ function para(s: string, sz: number = 16, jc: string = 'center'): string {
     sz +
     '"/>' +
     (a ? '<w:rtl/><w:szCs w:val="' + sz + '"/>' : '') +
+    (bold ? '<w:b/><w:bCs/>' : '') +
     '</w:rPr><w:t xml:space="preserve">' +
     escapeXml(s) +
     '</w:t></w:r></w:p>'
@@ -42,7 +43,7 @@ function para(s: string, sz: number = 16, jc: string = 'center'): string {
 function tc(
   w: number,
   txt: string,
-  o: { span?: number; vm?: string; sz?: number; jc?: string } = {}
+  o: { span?: number; vm?: string; sz?: number; jc?: string; bold?: boolean; vAlign?: string } = {}
 ): string {
   return (
     '<w:tc><w:tcPr><w:tcW w:w="' +
@@ -50,8 +51,9 @@ function tc(
     '" w:type="dxa"/>' +
     (o.span ? '<w:gridSpan w:val="' + o.span + '"/>' : '') +
     (o.vm ? '<w:vMerge' + (o.vm === 'r' ? ' w:val="restart"' : '') + '/>' : '') +
+    (o.vAlign ? '<w:vAlign w:val="' + o.vAlign + '"/>' : '') +
     '</w:tcPr>' +
-    para(txt, o.sz || 16, o.jc) +
+    para(txt, o.sz || 16, o.jc, o.bold) +
     '</w:tc>'
   );
 }
@@ -93,7 +95,8 @@ function buildDocxXml(data: GlycemiaData, days: string[]): string {
   // Sub headers
   let hc = tc(W[0], '', { vm: 'c' });
   cols.forEach((c, j) => {
-    hc += c ? tc(W[j + 1], c.t, { sz: 15 }) : tc(W[j + 1], '');
+    const label = c ? getColLabel(c, data) : '';
+    hc += c ? tc(W[j + 1], label, { sz: 15 }) : tc(W[j + 1], '');
   });
   rows += tr(1900, hc);
 
@@ -105,13 +108,15 @@ function buildDocxXml(data: GlycemiaData, days: string[]): string {
     if (dayNote) {
       dayCellContent += para('Note: ' + dayNote, 13, 'left');
     }
-    let r = tc(W[0], '', { jc: 'left' }).replace(
+    let r = tc(W[0], '', { jc: 'left', vAlign: 'center' }).replace(
       '</w:tc>',
       dayCellContent + '</w:tc>'
     );
     cols.forEach((c, j) => {
       const val = c ? data[`d${di + 1}_${c.k}`] || '' : '';
-      r += c ? tc(W[j + 1], val, { sz: 20 }) : tc(W[j + 1], '');
+      r += c
+        ? tc(W[j + 1], val, { sz: 44, jc: 'center', vAlign: 'center', bold: true })
+        : tc(W[j + 1], '', { vAlign: 'center' });
     });
     rows += tr(1500, r);
   });

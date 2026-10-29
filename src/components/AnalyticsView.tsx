@@ -13,7 +13,7 @@ import {
   Check,
   X,
 } from 'lucide-react';
-import { GlycemiaData, getTargets } from '../types/glycemia';
+import { GlycemiaData, getTargets, getInsulinChoice } from '../types/glycemia';
 import { normalizeArabicNums } from '../utils/csvHelper';
 
 interface AnalyticsViewProps {
@@ -210,8 +210,16 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
     const d1 = parseFloat((d1Raw || '0').replace(',', '.')) || 0;
     const d3 = parseFloat((d3Raw || '0').replace(',', '.')) || 0;
 
-    const rapid = b2 + l1;
-    const mix = d1;
+    const b2Choice = getInsulinChoice(data, 'b2');
+    const l1Choice = getInsulinChoice(data, 'l1');
+    const d1Choice = getInsulinChoice(data, 'd1');
+
+    let rapid = 0;
+    let mix = 0;
+    if (b2Choice === 'rapid') rapid += b2; else mix += b2;
+    if (l1Choice === 'rapid') rapid += l1; else mix += l1;
+    if (d1Choice === 'rapid') rapid += d1; else mix += d1;
+
     const basal = d3;
     const dayTotalInsulin = rapid + mix + basal;
 

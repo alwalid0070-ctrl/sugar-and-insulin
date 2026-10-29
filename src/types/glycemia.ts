@@ -95,7 +95,28 @@ export interface GlycemiaData {
   targetMin?: number | string;
   targetMaxFasting?: number | string;
   targetMaxPost?: number | string;
+  ins_b2?: 'rapid' | 'mix';
+  ins_l1?: 'rapid' | 'mix';
+  ins_d1?: 'rapid' | 'mix';
   [key: string]: any;
+}
+
+export function getInsulinChoice(data: GlycemiaData, k: 'b2' | 'l1' | 'd1'): 'rapid' | 'mix' {
+  if (k === 'b2') return data.ins_b2 || 'rapid';
+  if (k === 'l1') return data.ins_l1 || 'rapid';
+  if (k === 'd1') return data.ins_d1 || 'mix';
+  return 'rapid';
+}
+
+export function insulinName(choice: 'rapid' | 'mix'): 'NOVO rapid' | 'NOVO Mix' {
+  return choice === 'mix' ? 'NOVO Mix' : 'NOVO rapid';
+}
+
+export function getColLabel(col: ColumnDef, data: GlycemiaData): string {
+  if (col.k === 'b2' || col.k === 'l1' || col.k === 'd1') {
+    return 'كمية الانسلين ' + insulinName(getInsulinChoice(data, col.k));
+  }
+  return col.t;
 }
 
 export interface GlycemiaTargets {

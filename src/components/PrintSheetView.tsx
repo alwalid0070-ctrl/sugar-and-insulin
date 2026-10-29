@@ -1,6 +1,6 @@
 import React from 'react';
 import { Printer, Download, ArrowRight, FileCheck } from 'lucide-react';
-import { GlycemiaData, COLS_DEF } from '../types/glycemia';
+import { GlycemiaData, COLS_DEF, getInsulinChoice } from '../types/glycemia';
 import { downloadDocx } from '../utils/docxExport';
 
 interface PrintSheetViewProps {
@@ -21,6 +21,10 @@ export const PrintSheetView: React.FC<PrintSheetViewProps> = ({
   const handleDownloadDocx = () => {
     downloadDocx(data, days);
   };
+
+  const insB2 = getInsulinChoice(data, 'b2');
+  const insL1 = getInsulinChoice(data, 'l1');
+  const insD1 = getInsulinChoice(data, 'd1');
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-4 space-y-4">
@@ -168,7 +172,9 @@ export const PrintSheetView: React.FC<PrintSheetViewProps> = ({
                   <span dir="rtl" className="block font-medium">كمية الانسلين</span>
                   <div className="text-left font-bold text-xs mt-3 pl-1 leading-snug">
                     NOVO<br />
-                    <span className="italic font-normal">rapid</span>
+                    <span className={insB2 === 'rapid' ? 'italic font-normal' : 'font-normal'}>
+                      {insB2 === 'rapid' ? 'rapid' : 'Mix'}
+                    </span>
                   </div>
                 </th>
                 <th className="border-r border-slate-900 p-1.5 h-32 align-top">
@@ -179,7 +185,9 @@ export const PrintSheetView: React.FC<PrintSheetViewProps> = ({
                   <span dir="rtl" className="block font-medium">كمية الانسلين</span>
                   <div className="text-left font-bold text-xs mt-3 pl-1 leading-snug">
                     NOVO<br />
-                    <span className="font-normal">rapid</span>
+                    <span className={insL1 === 'rapid' ? 'font-normal' : 'font-normal'}>
+                      {insL1 === 'rapid' ? 'rapid' : 'Mix'}
+                    </span>
                   </div>
                 </th>
                 <th className="border-r border-slate-900 p-1.5 h-32 align-top">
@@ -190,7 +198,9 @@ export const PrintSheetView: React.FC<PrintSheetViewProps> = ({
                   <span dir="rtl" className="block font-medium">كمية الانسلين</span>
                   <div className="text-left font-bold text-xs mt-3 pl-1 leading-snug">
                     NOVO<br />
-                    <span className="font-normal">Mix</span>
+                    <span className={insD1 === 'rapid' ? 'italic font-normal' : 'font-normal'}>
+                      {insD1 === 'rapid' ? 'rapid' : 'Mix'}
+                    </span>
                   </div>
                 </th>
                 <th className="border-r border-slate-900 p-1.5 h-32 align-top">
@@ -231,17 +241,17 @@ export const PrintSheetView: React.FC<PrintSheetViewProps> = ({
                     </td>
 
                     {/* b1 */}
-                    <td className="border-r border-slate-900 p-1 text-lg font-bold tabular-nums">
+                    <td className="border-r border-slate-900 p-1 text-3xl font-bold tabular-nums text-center align-middle">
                       {data[`d${dayNum}_b1`] || ''}
                     </td>
 
                     {/* b2 */}
-                    <td className="border-r border-slate-900 p-1 text-lg font-bold tabular-nums">
+                    <td className="border-r border-slate-900 p-1 text-3xl font-bold tabular-nums text-center align-middle">
                       {data[`d${dayNum}_b2`] || ''}
                     </td>
 
                     {/* b3 */}
-                    <td className="border-r border-slate-900 p-1 text-lg font-bold tabular-nums">
+                    <td className="border-r border-slate-900 p-1 text-3xl font-bold tabular-nums text-center align-middle">
                       {data[`d${dayNum}_b3`] || ''}
                     </td>
 
@@ -249,27 +259,27 @@ export const PrintSheetView: React.FC<PrintSheetViewProps> = ({
                     <td className="bg-white border-r border-slate-900 p-0"></td>
 
                     {/* l1 */}
-                    <td className="border-r border-slate-900 p-1 text-lg font-bold tabular-nums">
+                    <td className="border-r border-slate-900 p-1 text-3xl font-bold tabular-nums text-center align-middle">
                       {data[`d${dayNum}_l1`] || ''}
                     </td>
 
                     {/* l2 */}
-                    <td className="border-r border-slate-900 p-1 text-lg font-bold tabular-nums">
+                    <td className="border-r border-slate-900 p-1 text-3xl font-bold tabular-nums text-center align-middle">
                       {data[`d${dayNum}_l2`] || ''}
                     </td>
 
                     {/* d1 */}
-                    <td className="border-r border-slate-900 p-1 text-lg font-bold tabular-nums">
+                    <td className="border-r border-slate-900 p-1 text-3xl font-bold tabular-nums text-center align-middle">
                       {data[`d${dayNum}_d1`] || ''}
                     </td>
 
                     {/* d2 */}
-                    <td className="border-r border-slate-900 p-1 text-lg font-bold tabular-nums">
+                    <td className="border-r border-slate-900 p-1 text-3xl font-bold tabular-nums text-center align-middle">
                       {data[`d${dayNum}_d2`] || ''}
                     </td>
 
                     {/* d3 */}
-                    <td className="border-r border-slate-900 p-1 text-lg font-bold tabular-nums">
+                    <td className="border-r border-slate-900 p-1 text-3xl font-bold tabular-nums text-center align-middle">
                       {data[`d${dayNum}_d3`] || ''}
                     </td>
                   </tr>
