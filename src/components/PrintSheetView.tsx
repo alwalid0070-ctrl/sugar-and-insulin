@@ -1,6 +1,12 @@
 import React from 'react';
 import { Printer, Download, ArrowRight, FileCheck } from 'lucide-react';
-import { GlycemiaData, COLS_DEF, getInsulinChoice, getDrugName } from '../types/glycemia';
+import {
+  GlycemiaData,
+  COLS_DEF,
+  getInsulinChoice,
+  getDrugName,
+  formatExtraInsulinLine,
+} from '../types/glycemia';
 import { downloadDocx } from '../utils/docxExport';
 
 interface PrintSheetViewProps {
@@ -316,6 +322,13 @@ export const PrintSheetView: React.FC<PrintSheetViewProps> = ({
               })}
             </tbody>
           </table>
+
+          {/* Extra Insulin small line if present */}
+          {formatExtraInsulinLine(data) && (
+            <div className="mt-2 text-xs font-semibold text-slate-800 text-right leading-tight">
+              {formatExtraInsulinLine(data)}
+            </div>
+          )}
 
           {/* Day Notes summary section if present */}
           {days.some((_, i) => data[`d${i + 1}_note`]) && (

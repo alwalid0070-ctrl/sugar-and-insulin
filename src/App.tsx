@@ -376,6 +376,7 @@ export default function App() {
       drugOther_l1: '',
       drugOther_d1: '',
       drugOther_d3: '',
+      insExtra: [],
     });
     setDays(DEFAULT_DAYS);
     setActiveDayIndex(0);

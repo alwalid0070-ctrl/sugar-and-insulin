@@ -3,7 +3,12 @@
  * Faithful recreation and enhancement of the original glycemia-sheet Word generator.
  */
 
-import { GlycemiaData, COLS_DEF, getColLabel } from '../types/glycemia';
+import {
+  GlycemiaData,
+  COLS_DEF,
+  getColLabel,
+  formatExtraInsulinLine,
+} from '../types/glycemia';
 
 function ar(s: string): boolean {
   return /[\u0600-\u06FF]/.test(s);
@@ -163,10 +168,17 @@ function buildDocxXml(data: GlycemiaData, days: string[]): string {
     'left'
   );
 
+  let extraBlock = '';
+  const extraLine = formatExtraInsulinLine(data);
+  if (extraLine) {
+    extraBlock = para(extraLine, 15, 'right', true);
+  }
+
   return (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
     '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' +
     tbl +
+    (extraBlock ? para('', 10) + extraBlock : '') +
     para('', 22) +
     notesBlock +
     idp +

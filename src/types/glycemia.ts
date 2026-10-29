@@ -110,6 +110,11 @@ export type LongActingDrug = (typeof LONG_ACTING_DRUGS)[number];
 export type RapidDrug = (typeof RAPID_DRUGS)[number];
 export type MixedDrug = (typeof MIXED_DRUGS)[number];
 
+export interface ExtraInsulinItem {
+  drug: string;
+  label: string;
+}
+
 export interface GlycemiaData {
   nom?: string;
   prenom?: string;
@@ -132,7 +137,28 @@ export interface GlycemiaData {
   drugOther_l1?: string;
   drugOther_d1?: string;
   drugOther_d3?: string;
+  insExtra?: ExtraInsulinItem[] | string;
   [key: string]: any;
+}
+
+export function getExtraInsulin(data: GlycemiaData): ExtraInsulinItem[] {
+  if (!data.insExtra) return [];
+  if (Array.isArray(data.insExtra)) return data.insExtra;
+  if (typeof data.insExtra === 'string') {
+    try {
+      const parsed = JSON.parse(data.insExtra);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+export function formatExtraInsulinLine(data: GlycemiaData): string | null {
+  const items = getExtraInsulin(data);
+  if (!items.length) return null;
+  return 'إنسولين إضافي: ' + items.map((x) => `${x.drug} – ${x.label}`).join(' | ');
 }
 
 export function getInsulinChoice(data: GlycemiaData, k: 'b2' | 'l1' | 'd1'): 'rapid' | 'mix' {
