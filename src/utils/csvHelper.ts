@@ -250,17 +250,11 @@ function findCol(meal: string, mes: string): ColMatch | null {
         drugVal: matchedMix,
       };
     }
-    // Legacy formats
-    if (lowerExt === 'novo rapid' || (lowerExt.includes('rapid') && !extracted.includes(' '))) {
+    // Legacy formats (exact match only)
+    if (lowerExt === 'novo rapid') {
       return { col, insulinChoice: 'rapid', periodKey: 'ins_b2' };
     }
-    if (lowerExt === 'novo mix' || (lowerExt.includes('mix') && !extracted.includes(' '))) {
-      return { col, insulinChoice: 'mix', periodKey: 'ins_b2' };
-    }
-    if (lowerExt.includes('rapid')) {
-      return { col, insulinChoice: 'rapid', periodKey: 'ins_b2' };
-    }
-    if (lowerExt.includes('mix')) {
+    if (lowerExt === 'novo mix') {
       return { col, insulinChoice: 'mix', periodKey: 'ins_b2' };
     }
     // Unlisted custom drug
@@ -300,17 +294,11 @@ function findCol(meal: string, mes: string): ColMatch | null {
         drugVal: matchedMix,
       };
     }
-    // Legacy formats
-    if (lowerExt === 'novo rapid' || (lowerExt.includes('rapid') && !extracted.includes(' '))) {
+    // Legacy formats (exact match only)
+    if (lowerExt === 'novo rapid') {
       return { col, insulinChoice: 'rapid', periodKey: 'ins_l1' };
     }
-    if (lowerExt === 'novo mix' || (lowerExt.includes('mix') && !extracted.includes(' '))) {
-      return { col, insulinChoice: 'mix', periodKey: 'ins_l1' };
-    }
-    if (lowerExt.includes('rapid')) {
-      return { col, insulinChoice: 'rapid', periodKey: 'ins_l1' };
-    }
-    if (lowerExt.includes('mix')) {
+    if (lowerExt === 'novo mix') {
       return { col, insulinChoice: 'mix', periodKey: 'ins_l1' };
     }
     // Unlisted custom drug
@@ -394,17 +382,11 @@ function findCol(meal: string, mes: string): ColMatch | null {
       };
     }
 
-    // Legacy formats for dinner
-    if (lowerExt === 'novo mix' || (lowerExt.includes('mix') && !extracted.includes(' '))) {
+    // Legacy formats for dinner (exact match only)
+    if (lowerExt === 'novo mix') {
       return { col: colD1, insulinChoice: 'mix', periodKey: 'ins_d1' };
     }
-    if (lowerExt === 'novo rapid' || (lowerExt.includes('rapid') && !extracted.includes(' '))) {
-      return { col: colD1, insulinChoice: 'rapid', periodKey: 'ins_d1' };
-    }
-    if (lowerExt.includes('mix')) {
-      return { col: colD1, insulinChoice: 'mix', periodKey: 'ins_d1' };
-    }
-    if (lowerExt.includes('rapid')) {
+    if (lowerExt === 'novo rapid') {
       return { col: colD1, insulinChoice: 'rapid', periodKey: 'ins_d1' };
     }
 
