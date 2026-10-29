@@ -376,6 +376,9 @@ export default function App() {
       drugOther_l1: '',
       drugOther_d1: '',
       drugOther_d3: '',
+      periodLabel_b2: '',
+      periodLabel_l1: '',
+      periodLabel_d1: '',
       insExtra: [],
     });
     setDays(DEFAULT_DAYS);

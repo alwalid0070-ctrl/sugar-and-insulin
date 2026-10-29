@@ -111,8 +111,12 @@ export type RapidDrug = (typeof RAPID_DRUGS)[number];
 export type MixedDrug = (typeof MIXED_DRUGS)[number];
 
 export interface ExtraInsulinItem {
-  drug: string;
+  id?: string;
   label: string;
+  drug: string;
+  drugOther?: string;
+  slot?: 0 | 1 | 2 | 3; // 0: قبل الصباح, 1: بين الصباح والغداء, 2: بين الغداء والعشاء, 3: بعد العشاء
+  order?: number;
 }
 
 export interface GlycemiaData {
@@ -137,22 +141,58 @@ export interface GlycemiaData {
   drugOther_l1?: string;
   drugOther_d1?: string;
   drugOther_d3?: string;
+  periodLabel_b2?: string;
+  periodLabel_l1?: string;
+  periodLabel_d1?: string;
   insExtra?: ExtraInsulinItem[] | string;
   [key: string]: any;
 }
 
+export function getFixedPeriodLabel(
+  data: GlycemiaData,
+  k: 'b2' | 'l1' | 'd1'
+): string {
+  const custom = data[`periodLabel_${k}`];
+  if (typeof custom === 'string' && custom.trim()) {
+    return custom.trim().slice(0, 30);
+  }
+  if (k === 'b2') return 'الصباح';
+  if (k === 'l1') return 'الغداء';
+  if (k === 'd1') return 'العشاء';
+  return '';
+}
+
 export function getExtraInsulin(data: GlycemiaData): ExtraInsulinItem[] {
   if (!data.insExtra) return [];
-  if (Array.isArray(data.insExtra)) return data.insExtra;
-  if (typeof data.insExtra === 'string') {
+  let raw: any[] = [];
+  if (Array.isArray(data.insExtra)) {
+    raw = data.insExtra;
+  } else if (typeof data.insExtra === 'string') {
     try {
       const parsed = JSON.parse(data.insExtra);
-      return Array.isArray(parsed) ? parsed : [];
+      if (Array.isArray(parsed)) raw = parsed;
     } catch {
-      return [];
+      raw = [];
     }
   }
-  return [];
+
+  // Normalize: if slot is missing, default to 3 (بعد العشاء). If order is missing, default to index.
+  const normalized: ExtraInsulinItem[] = raw
+    .map((x, idx) => ({
+      id: x.id || `extra_${idx}_${Date.now()}`,
+      label: (x.label || '').trim(),
+      drug: (x.drug || '').trim(),
+      drugOther: x.drugOther ? String(x.drugOther).trim() : undefined,
+      slot: (x.slot === 0 || x.slot === 1 || x.slot === 2 || x.slot === 3 ? x.slot : 3) as 0 | 1 | 2 | 3,
+      order: typeof x.order === 'number' ? x.order : idx,
+    }))
+    .filter((x) => Boolean(x.label && x.drug));
+
+  // Sort by slot (0, 1, 2, 3), then by order ascending
+  return normalized.sort((a, b) => {
+    if (a.slot !== b.slot) return (a.slot ?? 3) - (b.slot ?? 3);
+    return (a.order ?? 0) - (b.order ?? 0);
+  });
 }
 
 export function formatExtraInsulinLine(data: GlycemiaData): string | null {
