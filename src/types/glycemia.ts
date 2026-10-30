@@ -179,8 +179,8 @@ export function getExtraInsulin(data: GlycemiaData): ExtraInsulinItem[] {
   // Normalize: if slot is missing, default to 3 (بعد العشاء). If order is missing, default to index.
   const normalized: ExtraInsulinItem[] = raw
     .map((x, idx) => ({
-      id: x.id || `extra_${idx}_${Date.now()}`,
-      label: (x.label || '').trim(),
+      id: x.id || `extra_${idx}`,
+      label: String(x.label || '').trim().slice(0, 30),
       drug: (x.drug || '').trim(),
       drugOther: x.drugOther ? String(x.drugOther).trim() : undefined,
       slot: (x.slot === 0 || x.slot === 1 || x.slot === 2 || x.slot === 3 ? x.slot : 3) as 0 | 1 | 2 | 3,

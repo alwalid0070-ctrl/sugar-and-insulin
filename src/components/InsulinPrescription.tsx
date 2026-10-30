@@ -289,15 +289,14 @@ export const InsulinPrescription: React.FC<InsulinPrescriptionProps> = ({
       // Swap order with previous extra item in same slot
       const otherId = prevItem.item.id;
       setDraftExtraList((prev) => {
-        const next = [...prev];
-        const a = next.find((x) => x.id === itemId);
-        const b = next.find((x) => x.id === otherId);
-        if (a && b) {
-          const temp = a.order;
-          a.order = b.order;
-          b.order = temp;
-        }
-        return normalizeOrders(next);
+        const a = prev.find((x) => x.id === itemId);
+        const b = prev.find((x) => x.id === otherId);
+        if (!a || !b) return prev;
+        return normalizeOrders(
+          prev.map((x) =>
+            x.id === itemId ? { ...x, order: b.order } : x.id === otherId ? { ...x, order: a.order } : x
+          )
+        );
       });
     } else {
       // Moves above a fixed period!
@@ -335,15 +334,14 @@ export const InsulinPrescription: React.FC<InsulinPrescriptionProps> = ({
       // Swap order with next extra item in same slot
       const otherId = nextItem.item.id;
       setDraftExtraList((prev) => {
-        const next = [...prev];
-        const a = next.find((x) => x.id === itemId);
-        const b = next.find((x) => x.id === otherId);
-        if (a && b) {
-          const temp = a.order;
-          a.order = b.order;
-          b.order = temp;
-        }
-        return normalizeOrders(next);
+        const a = prev.find((x) => x.id === itemId);
+        const b = prev.find((x) => x.id === otherId);
+        if (!a || !b) return prev;
+        return normalizeOrders(
+          prev.map((x) =>
+            x.id === itemId ? { ...x, order: b.order } : x.id === otherId ? { ...x, order: a.order } : x
+          )
+        );
       });
     } else {
       // Moves below a fixed period!
@@ -439,7 +437,7 @@ export const InsulinPrescription: React.FC<InsulinPrescriptionProps> = ({
 
     if (selectedCategory === 'lente') {
       if (drugD3 && drugD3 !== effectiveDrugName) {
-        list.push(`سيحل ${effectiveDrugName} محل ${drugD3} في فترة العشاء (d3)`);
+        list.push(`سيحل ${effectiveDrugName} محل ${drugD3} في العمود المخصص للإنسولين طويل المفعول`);
       }
       return list;
     }
@@ -1459,9 +1457,10 @@ export const InsulinPrescription: React.FC<InsulinPrescriptionProps> = ({
 
                   {/* Period Extra */}
                   <div className="p-3 rounded-xl border border-slate-200 bg-white flex flex-col justify-between gap-2">
-                    <label className="flex items-center gap-3 cursor-pointer select-none">
+                    <label className={`flex items-center gap-3 select-none ${extraList.length >= 5 ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
                       <input
                         type="checkbox"
+                        disabled={extraList.length >= 5}
                         checked={selectedPeriods.extra}
                         onChange={(e) =>
                           setSelectedPeriods((prev) => ({ ...prev, extra: e.target.checked }))
@@ -1483,8 +1482,10 @@ export const InsulinPrescription: React.FC<InsulinPrescriptionProps> = ({
                       </div>
                     </label>
 
-                    <div className="text-[10px] text-purple-700">
-                      تظهر كسطر إضافي تحت الجدول وفي Word
+                    <div className={`text-[10px] ${extraList.length >= 5 ? 'text-amber-700 font-semibold' : 'text-purple-700'}`}>
+                      {extraList.length >= 5
+                        ? 'بلغتَ الحد الأقصى (5 فترات إضافية)؛ احذف فترة من «تعديل» لإضافة أخرى'
+                        : 'تظهر كسطر إضافي تحت الجدول وفي Word'}
                     </div>
                   </div>
                 </div>
